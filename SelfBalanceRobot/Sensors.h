@@ -1,6 +1,9 @@
 #ifndef SENSORS_H
 #define SENSORS_H
 
+#include <MeGyro.h>
+#include <MeUltrasonicSensor.h>
+
 #include "RobotTypes.h"
 #include "config.h"
 

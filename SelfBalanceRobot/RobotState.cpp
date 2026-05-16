@@ -1,18 +1,25 @@
 #include "RobotState.h"
 
+#include "config.h"
+
 #include <math.h>
 
 RobotState::RobotState()
     : mode_(RobotMode::Disarmed), fallAngleDegrees_(30.0f),
-      obstacleDistanceCm_(20.0f), calibrationMillis_(1000),
-      commandTimeoutMillis_(250), calibrationStartMillis_(0),
+      stillAngleDeltaDegrees_(4.0f), obstacleDistanceCm_(20.0f),
+      calibrationMillis_(1000), commandTimeoutMillis_(250),
+      calibrationStartMillis_(0), calibrationArmMillis_(0),
+      calibrationInitialAngleDegrees_(0.0f),
       calibrationSumDegrees_(0.0f), calibrationSamples_(0),
       uprightAngleDegrees_(0.0f) {}
 
-void RobotState::configure(float fallAngleDegrees, float obstacleDistanceCm,
+void RobotState::configure(float fallAngleDegrees,
+                           float stillAngleDeltaDegrees,
+                           float obstacleDistanceCm,
                            unsigned long calibrationMillis,
                            unsigned long commandTimeoutMillis) {
   fallAngleDegrees_ = fallAngleDegrees;
+  stillAngleDeltaDegrees_ = stillAngleDeltaDegrees;
   obstacleDistanceCm_ = obstacleDistanceCm;
   calibrationMillis_ = calibrationMillis;
   commandTimeoutMillis_ = commandTimeoutMillis;
@@ -29,9 +36,9 @@ void RobotState::update(const SensorFrame& frame,
   case RobotMode::Disarmed:
     if (command.arm && frame.gyroFresh &&
         commandIsFresh(command, frame.nowMillis)) {
-      startCalibration(frame);
+      startCalibration(frame, command);
       if (frame.nowMillis - calibrationStartMillis_ >= calibrationMillis_) {
-        finishCalibration();
+        finishCalibration(frame);
       }
     }
     break;
@@ -42,10 +49,11 @@ void RobotState::update(const SensorFrame& frame,
         mode_ = RobotMode::Fault;
         break;
       }
-      addCalibrationSample(frame);
-      finishCalibration();
-    } else {
-      addCalibrationSample(frame);
+      if (addCalibrationSample(frame)) {
+        finishCalibration(frame);
+      }
+    } else if (!addCalibrationSample(frame)) {
+      mode_ = RobotMode::Fault;
     }
     break;
 
@@ -104,30 +112,52 @@ bool RobotState::commandIsFresh(const ControlCommand& command,
   return nowMillis - command.receivedMillis <= commandTimeoutMillis_;
 }
 
+bool RobotState::calibrationArmIsFresh(unsigned long nowMillis) const {
+  return nowMillis - calibrationArmMillis_ <= commandTimeoutMillis_;
+}
+
 bool RobotState::hasFallen(float angleDegrees) const {
   return fabs(angleDegrees - uprightAngleDegrees_) >= fallAngleDegrees_;
 }
 
-void RobotState::startCalibration(const SensorFrame& frame) {
+void RobotState::startCalibration(const SensorFrame& frame,
+                                  const ControlCommand& command) {
   mode_ = RobotMode::Calibrating;
   calibrationStartMillis_ = frame.nowMillis;
+  calibrationArmMillis_ = command.receivedMillis;
+  calibrationInitialAngleDegrees_ = frame.angleDegrees;
   calibrationSumDegrees_ = 0.0f;
   calibrationSamples_ = 0;
   addCalibrationSample(frame);
 }
 
-void RobotState::addCalibrationSample(const SensorFrame& frame) {
-  if (frame.gyroFresh) {
-    calibrationSumDegrees_ += frame.angleDegrees;
-    ++calibrationSamples_;
+bool RobotState::addCalibrationSample(const SensorFrame& frame) {
+  if (!frame.gyroFresh) {
+    return true;
   }
+
+  if (fabs(frame.angleDegrees - calibrationInitialAngleDegrees_) >
+      stillAngleDeltaDegrees_) {
+    return false;
+  }
+
+  calibrationSumDegrees_ += frame.angleDegrees;
+  ++calibrationSamples_;
+  return true;
 }
 
-void RobotState::finishCalibration() {
-  if (calibrationSamples_ > 0) {
-    uprightAngleDegrees_ = calibrationSumDegrees_ / calibrationSamples_;
-    mode_ = RobotMode::Balancing;
-  } else {
+void RobotState::finishCalibration(const SensorFrame& frame) {
+  if (calibrationSamples_ == 0 || !calibrationArmIsFresh(frame.nowMillis)) {
     mode_ = RobotMode::Fault;
+    return;
   }
+
+  const float uprightAngle = calibrationSumDegrees_ / calibrationSamples_;
+  if (fabs(uprightAngle) > Config::MaxStartupUprightAngleDegrees) {
+    mode_ = RobotMode::Fault;
+    return;
+  }
+
+  uprightAngleDegrees_ = uprightAngle;
+  mode_ = RobotMode::Balancing;
 }

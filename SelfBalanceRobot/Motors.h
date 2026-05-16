@@ -1,6 +1,8 @@
 #ifndef MOTORS_H
 #define MOTORS_H
 
+#include <MeMegaPiDCMotor.h>
+
 #include "RobotTypes.h"
 #include "config.h"
 

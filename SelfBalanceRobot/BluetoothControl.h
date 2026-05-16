@@ -8,9 +8,11 @@ class BluetoothControl {
 public:
   explicit BluetoothControl(Stream* stream = 0);
 
+  void begin(Stream& stream);
   void attach(Stream* stream);
   const ControlCommand& update(unsigned long nowMillis);
   const ControlCommand& current() const;
+  void consumeTuning();
 
 private:
   static const uint8_t BufferSize = 48;
@@ -25,6 +27,8 @@ private:
   void parseLine(char* line, unsigned long nowMillis);
   void markReceived(unsigned long nowMillis);
   bool parseIntegerToken(const char* token, long* value) const;
+  bool parseFloatToken(const char* token, float* value) const;
+  bool tuningInRange(float kp, float ki, float kd) const;
   int16_t clampCommand(long value, int16_t limit) const;
 };
 

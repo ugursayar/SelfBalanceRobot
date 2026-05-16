@@ -17,7 +17,7 @@ const SensorFrame& Sensors::update(unsigned long nowMillis) {
   frame_.ultrasonicFresh = hasUltrasonicSample_;
 
   gyro_.update();
-  frame_.angleDegrees = gyro_.angleY();
+  frame_.angleDegrees = gyro_.getAngleY();
   frame_.gyroFresh = true;
 
   if (!hasUltrasonicSample_ ||

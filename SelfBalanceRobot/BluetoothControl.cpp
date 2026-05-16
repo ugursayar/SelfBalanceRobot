@@ -1,10 +1,13 @@
 #include "BluetoothControl.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 BluetoothControl::BluetoothControl(Stream* stream)
     : stream_(stream), command_(), buffer_(), length_(0), overflow_(false) {}
+
+void BluetoothControl::begin(Stream& stream) { attach(&stream); }
 
 void BluetoothControl::attach(Stream* stream) {
   stream_ = stream;
@@ -25,6 +28,8 @@ const ControlCommand& BluetoothControl::update(unsigned long nowMillis) {
 }
 
 const ControlCommand& BluetoothControl::current() const { return command_; }
+
+void BluetoothControl::consumeTuning() { command_.hasTuning = false; }
 
 void BluetoothControl::readByte(char value, unsigned long nowMillis) {
   if (value == '\r') {
@@ -68,6 +73,7 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
   }
 
   if (strcmp(command, "STOP") == 0) {
+    command_.arm = false;
     command_.stop = true;
     command_.driveEnabled = false;
     command_.forward = 0;
@@ -77,6 +83,7 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
   }
 
   if (strcmp(command, "BALANCE") == 0) {
+    command_.arm = false;
     command_.stop = false;
     command_.driveEnabled = false;
     command_.forward = 0;
@@ -99,6 +106,7 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
       return;
     }
 
+    command_.arm = false;
     command_.stop = false;
     command_.driveEnabled = true;
     command_.forward = clampCommand(forwardValue, Config::MaxDriveCommand);
@@ -115,9 +123,21 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
       return;
     }
 
-    command_.tuneKp = static_cast<float>(atof(kp));
-    command_.tuneKi = static_cast<float>(atof(ki));
-    command_.tuneKd = static_cast<float>(atof(kd));
+    float parsedKp = 0.0f;
+    float parsedKi = 0.0f;
+    float parsedKd = 0.0f;
+    if (!parseFloatToken(kp, &parsedKp) ||
+        !parseFloatToken(ki, &parsedKi) ||
+        !parseFloatToken(kd, &parsedKd) ||
+        !tuningInRange(parsedKp, parsedKi, parsedKd)) {
+      return;
+    }
+
+    command_.arm = false;
+    command_.stop = false;
+    command_.tuneKp = parsedKp;
+    command_.tuneKi = parsedKi;
+    command_.tuneKd = parsedKd;
     command_.hasTuning = true;
     markReceived(nowMillis);
   }
@@ -140,6 +160,27 @@ bool BluetoothControl::parseIntegerToken(const char* token, long* value) const {
 
   *value = parsed;
   return true;
+}
+
+bool BluetoothControl::parseFloatToken(const char* token, float* value) const {
+  if (!token || !*token || !value) {
+    return false;
+  }
+
+  char* end = 0;
+  const double parsed = strtod(token, &end);
+  if (end == token || *end != '\0' || !isfinite(parsed)) {
+    return false;
+  }
+
+  *value = static_cast<float>(parsed);
+  return isfinite(*value);
+}
+
+bool BluetoothControl::tuningInRange(float kp, float ki, float kd) const {
+  return kp >= Config::MinRuntimeKp && kp <= Config::MaxRuntimeKp &&
+         ki >= Config::MinRuntimeKi && ki <= Config::MaxRuntimeKi &&
+         kd >= Config::MinRuntimeKd && kd <= Config::MaxRuntimeKd;
 }
 
 int16_t BluetoothControl::clampCommand(long value, int16_t limit) const {

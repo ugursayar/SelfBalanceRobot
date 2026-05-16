@@ -93,8 +93,10 @@ void loop() {
         uprightAngle + driveRatio * Config::MaxTargetLeanDegrees;
 
     balance.setTargetAngle(targetAngle);
-    const int16_t balanceOutput =
-        balance.update(frame.angleDegrees, dtSeconds);
+    int16_t balanceOutput = balance.update(frame.angleDegrees, dtSeconds);
+    if (Config::InvertBalanceOutput) {
+      balanceOutput = -balanceOutput;
+    }
     motorOutput = mixer.mix(balanceOutput, 0, safe.turn);
     motors.write(motorOutput);
     lastCommand = safe;

@@ -19,7 +19,7 @@ Use short tests and keep the robot held securely until motor direction and balan
 5. Tilt the robot gently and confirm wheels correct in the direction that would drive under the falling body.
 6. If either wheel runs backward, change `InvertRightMotor` or `InvertLeftMotor` in `config.h`.
 7. If the balance angle does not change when tipping the robot forward/backward, change `BalanceGyroAxis` in `config.h`.
-8. If both wheels correct the wrong way after the axis is correct, invert the sign of the selected gyro angle in `Sensors.cpp`.
+8. If both wheels correct the wrong way after the axis is correct, change `InvertBalanceOutput` in `config.h`.
 
 ## Balance Tuning
 

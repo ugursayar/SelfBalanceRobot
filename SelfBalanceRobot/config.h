@@ -19,6 +19,7 @@ namespace Config {
 
   constexpr bool InvertRightMotor = false;
   constexpr bool InvertLeftMotor = true;
+  constexpr bool InvertBalanceOutput = true;
 
   constexpr unsigned long BalanceLoopMicros = 10000UL;
   constexpr unsigned long UltrasonicPeriodMillis = 80UL;

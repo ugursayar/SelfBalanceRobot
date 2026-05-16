@@ -32,6 +32,14 @@ Start with small tests:
 5. If correction starts strong but then rolls consistently in one direction, adjust `BalanceAngleTrimDegrees` by small amounts such as `0.5` or `-0.5`.
 6. Add a very small `BalanceKi` only after proportional, derivative, motor limit, and trim are close.
 
+You can tune gains without re-uploading by sending a `PID` command from Serial Monitor. Examples:
+
+- `PID 25 0 0.7`
+- `PID 35 0 0.9`
+- `PID 45 0 1.1`
+
+If debug `left=` and `right=` are near `MaxMotorCommand` while the robot still cannot recover, increase `MaxMotorCommand`. If they are not near the limit, increase `BalanceKp` first.
+
 ## Obstacle Check
 
 With the robot balancing, place an obstacle closer than the configured threshold and send `DRIVE 30 0`. Forward command should be clamped. `DRIVE -30 0` should still be allowed.

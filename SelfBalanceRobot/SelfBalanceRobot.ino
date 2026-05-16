@@ -22,6 +22,8 @@ SensorFrame lastFrame;
 ControlCommand lastCommand;
 MotorCommand lastMotorOutput;
 float lastTargetAngle = 0.0f;
+float currentKp = Config::BalanceKp;
+float currentKd = Config::BalanceKd;
 
 void printDebug(const SensorFrame& frame, const ControlCommand& command,
                 const MotorCommand& motorOutput);
@@ -73,6 +75,8 @@ void loop() {
   const ControlCommand& command = useUsbCommand ? usbCommand : bluetoothCommand;
 
   if (command.hasTuning) {
+    currentKp = command.tuneKp;
+    currentKd = command.tuneKd;
     balance.setTunings(command.tuneKp, command.tuneKi, command.tuneKd);
     if (useUsbCommand) {
       usbCommands.consumeTuning();
@@ -166,5 +170,9 @@ void printDebug(const SensorFrame& frame, const ControlCommand& command,
   Serial.print(F(" left="));
   Serial.print(motorOutput.left);
   Serial.print(F(" right="));
-  Serial.println(motorOutput.right);
+  Serial.print(motorOutput.right);
+  Serial.print(F(" kp="));
+  Serial.print(currentKp);
+  Serial.print(F(" kd="));
+  Serial.println(currentKd);
 }

@@ -26,9 +26,11 @@ Use short tests and keep the robot held securely until motor direction and balan
 Start with small tests:
 
 1. Keep `BalanceKi` at `0.0`.
-2. Increase `BalanceKp` until the robot strongly corrects but does not oscillate violently.
-3. Increase `BalanceKd` to damp oscillation.
-4. Add a very small `BalanceKi` only if the robot consistently leans after proportional and derivative tuning.
+2. If the robot shakes quickly, reduce `BalanceKp`, `BalanceKd`, or `MaxMotorCommand` in `config.h`.
+3. If the robot falls without correcting strongly enough, increase `BalanceKp` in small steps.
+4. Increase `BalanceKd` only enough to damp slow oscillation.
+5. If it balances briefly but rolls consistently in one direction, adjust `BalanceAngleTrimDegrees` by small amounts such as `0.5` or `-0.5`.
+6. Add a very small `BalanceKi` only after proportional, derivative, and trim are close.
 
 ## Obstacle Check
 

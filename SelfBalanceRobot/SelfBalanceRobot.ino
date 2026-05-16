@@ -21,6 +21,7 @@ unsigned long lastDebugMillis = 0;
 SensorFrame lastFrame;
 ControlCommand lastCommand;
 MotorCommand lastMotorOutput;
+float lastTargetAngle = 0.0f;
 
 void printDebug(const SensorFrame& frame, const ControlCommand& command,
                 const MotorCommand& motorOutput);
@@ -90,8 +91,10 @@ void loop() {
         static_cast<float>(safe.forward) /
         static_cast<float>(Config::MaxDriveCommand);
     const float targetAngle =
-        uprightAngle + driveRatio * Config::MaxTargetLeanDegrees;
+        uprightAngle + Config::BalanceAngleTrimDegrees +
+        driveRatio * Config::MaxTargetLeanDegrees;
 
+    lastTargetAngle = targetAngle;
     balance.setTargetAngle(targetAngle);
     int16_t balanceOutput = balance.update(frame.angleDegrees, dtSeconds);
     if (Config::InvertBalanceOutput) {
@@ -152,6 +155,8 @@ void printDebug(const SensorFrame& frame, const ControlCommand& command,
   Serial.print(frame.angleDegrees);
   Serial.print(F(" upright="));
   Serial.print(robotState.uprightAngleDegrees());
+  Serial.print(F(" target="));
+  Serial.print(lastTargetAngle);
   Serial.print(F(" distance="));
   Serial.print(frame.distanceCm);
   Serial.print(F(" fwd="));

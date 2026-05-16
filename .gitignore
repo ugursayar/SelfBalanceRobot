@@ -1,0 +1,12 @@
+.superpowers/brainstorm/
+.vscode/
+.idea/
+build/
+*.elf
+*.hex
+*.bin
+*.eep
+*.map
+*.o
+*.d
+*.tmp

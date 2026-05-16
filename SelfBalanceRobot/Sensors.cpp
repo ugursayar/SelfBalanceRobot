@@ -17,7 +17,7 @@ const SensorFrame& Sensors::update(unsigned long nowMillis) {
   frame_.ultrasonicFresh = hasUltrasonicSample_;
 
   gyro_.update();
-  frame_.angleDegrees = gyro_.getAngleY();
+  frame_.angleDegrees = readBalanceAngle();
   frame_.gyroFresh = true;
 
   if (!hasUltrasonicSample_ ||
@@ -32,3 +32,16 @@ const SensorFrame& Sensors::update(unsigned long nowMillis) {
 }
 
 const SensorFrame& Sensors::current() const { return frame_; }
+
+float Sensors::readBalanceAngle() const {
+  switch (Config::BalanceGyroAxis) {
+  case GyroAxis::X:
+    return gyro_.getAngleX();
+  case GyroAxis::Y:
+    return gyro_.getAngleY();
+  case GyroAxis::Z:
+    return gyro_.getAngleZ();
+  }
+
+  return gyro_.getAngleX();
+}

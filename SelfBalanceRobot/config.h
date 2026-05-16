@@ -3,9 +3,16 @@
 
 #include <Arduino.h>
 
+enum class GyroAxis : uint8_t {
+  X,
+  Y,
+  Z
+};
+
 namespace Config {
   constexpr uint8_t GyroPort = 0x06;
   constexpr uint8_t UltrasonicPort = 0x07;
+  constexpr GyroAxis BalanceGyroAxis = GyroAxis::X;
 
   constexpr uint8_t RightMotorPort = 0x09;
   constexpr uint8_t LeftMotorPort = 0x0a;

@@ -16,6 +16,8 @@ public:
   const SensorFrame& current() const;
 
 private:
+  float readBalanceAngle() const;
+
   MeGyro gyro_;
   MeUltrasonicSensor ultrasonic_;
   SensorFrame frame_;

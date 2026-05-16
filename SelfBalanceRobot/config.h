@@ -26,11 +26,11 @@ namespace Config {
   constexpr unsigned long CommandTimeoutMillis = 1500UL;
   constexpr unsigned long CalibrationMillis = 1200UL;
 
-  constexpr float BalanceKp = 8.0f;
+  constexpr float BalanceKp = 12.0f;
   constexpr float BalanceKi = 0.0f;
-  constexpr float BalanceKd = 0.25f;
+  constexpr float BalanceKd = 0.35f;
 
-  constexpr float BalanceAngleTrimDegrees = 0.0f;
+  constexpr float BalanceAngleTrimDegrees = 0.5f;
   constexpr float MaxTargetLeanDegrees = 3.0f;
   constexpr float FallAngleDegrees = 35.0f;
   constexpr float StillAngleDeltaDegrees = 4.0f;
@@ -45,7 +45,7 @@ namespace Config {
   constexpr float MaxRuntimeKd = 20.0f;
 
   constexpr int16_t MotorDeadband = 5;
-  constexpr int16_t MaxMotorCommand = 90;
+  constexpr int16_t MaxMotorCommand = 120;
   constexpr int16_t MaxTurnCommand = 30;
   constexpr int16_t MaxDriveCommand = 30;
 

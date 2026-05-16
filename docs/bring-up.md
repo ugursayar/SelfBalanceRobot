@@ -13,7 +13,7 @@ Use short tests and keep the robot held securely until motor direction and balan
 ## First Checks
 
 1. Upload with wheels off the ground.
-2. Open Serial Monitor at 115200 baud.
+2. Open Serial Monitor at 115200 baud and set line ending to `Newline` or `Both NL & CR`.
 3. Confirm debug output shows changing angle and distance values.
 4. Send `ARM` while holding the robot upright and still.
 5. Tilt the robot gently and confirm wheels correct in the direction that would drive under the falling body.

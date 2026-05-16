@@ -11,6 +11,7 @@
 Sensors sensors;
 Motors motors;
 BluetoothControl bluetooth;
+BluetoothControl usbCommands;
 BalanceController balance;
 DriveMixer mixer;
 RobotState robotState;
@@ -23,6 +24,7 @@ MotorCommand lastMotorOutput;
 
 void printDebug(const SensorFrame& frame, const ControlCommand& command,
                 const MotorCommand& motorOutput);
+bool commandAIsNewerOrSame(const ControlCommand& a, const ControlCommand& b);
 
 void setup() {
   Serial.begin(115200);
@@ -31,6 +33,7 @@ void setup() {
   sensors.begin();
   motors.begin();
   bluetooth.begin(Serial1);
+  usbCommands.begin(Serial);
 
   balance.setTunings(Config::BalanceKp, Config::BalanceKi, Config::BalanceKd);
   balance.setOutputLimit(Config::MaxMotorCommand);
@@ -47,7 +50,7 @@ void setup() {
   lastBalanceMicros = micros();
 
   if (Config::EnableDebugSerial) {
-    Serial.println(F("SelfBalanceRobot ready"));
+    Serial.println(F("SelfBalanceRobot ready. Send commands over Bluetooth or USB Serial Monitor with newline."));
   }
 }
 
@@ -63,11 +66,18 @@ void loop() {
   const unsigned long nowMillis = millis();
 
   const SensorFrame& frame = sensors.update(nowMillis);
-  const ControlCommand& command = bluetooth.update(nowMillis);
+  const ControlCommand& bluetoothCommand = bluetooth.update(nowMillis);
+  const ControlCommand& usbCommand = usbCommands.update(nowMillis);
+  const bool useUsbCommand = commandAIsNewerOrSame(usbCommand, bluetoothCommand);
+  const ControlCommand& command = useUsbCommand ? usbCommand : bluetoothCommand;
 
   if (command.hasTuning) {
     balance.setTunings(command.tuneKp, command.tuneKi, command.tuneKd);
-    bluetooth.consumeTuning();
+    if (useUsbCommand) {
+      usbCommands.consumeTuning();
+    } else {
+      bluetooth.consumeTuning();
+    }
   }
 
   robotState.update(frame, command);
@@ -97,6 +107,10 @@ void loop() {
   lastFrame = frame;
   lastMotorOutput = motorOutput;
   printDebug(lastFrame, lastCommand, lastMotorOutput);
+}
+
+bool commandAIsNewerOrSame(const ControlCommand& a, const ControlCommand& b) {
+  return static_cast<long>(a.receivedMillis - b.receivedMillis) >= 0;
 }
 
 void printMode(RobotMode mode) {

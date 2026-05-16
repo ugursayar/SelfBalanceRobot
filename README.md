@@ -22,3 +22,7 @@ Arduino project for a MakeBlock MegaPi two-wheel self-balancing robot with Bluet
 6. Upload.
 
 Start with the robot held securely. The sketch boots with motors disabled and requires an arm command before calibration and balancing.
+
+## Bring-Up
+
+Read `docs/bring-up.md` before enabling the motors on the floor. Start with the robot held securely and use `STOP` immediately if correction direction is wrong.

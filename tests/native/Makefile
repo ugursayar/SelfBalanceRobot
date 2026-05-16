@@ -4,9 +4,9 @@ CXXFLAGS ?= -std=gnu++11 -Wall -Wextra -Werror
 ROOT := ../..
 BUILD_DIR := build
 
-.PHONY: all test_balance_controller test_drive_mixer clean
+.PHONY: all test_balance_controller test_drive_mixer test_robot_state clean
 
-all: test_balance_controller test_drive_mixer
+all: test_balance_controller test_drive_mixer test_robot_state
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -25,6 +25,12 @@ $(BUILD_DIR)/test_drive_mixer: test_drive_mixer.cpp $(ROOT)/SelfBalanceRobot/Dri
 
 test_drive_mixer: $(BUILD_DIR)/test_drive_mixer
 	./$(BUILD_DIR)/test_drive_mixer
+
+$(BUILD_DIR)/test_robot_state: test_robot_state.cpp $(ROOT)/SelfBalanceRobot/RobotState.cpp $(ROOT)/SelfBalanceRobot/RobotState.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_robot_state.cpp $(ROOT)/SelfBalanceRobot/RobotState.cpp -o $@
+
+test_robot_state: $(BUILD_DIR)/test_robot_state
+	./$(BUILD_DIR)/test_robot_state
 
 clean:
 	rm -rf $(BUILD_DIR)

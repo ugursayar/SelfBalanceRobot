@@ -46,6 +46,8 @@ If debug `left=` and `right=` are near `MaxMotorCommand` while the robot still c
 
 If debug `balance=` changes but `left=` and `right=` stay at zero, software deadband is too high. Keep `MotorDeadband` low or `0` while tuning balance.
 
+If debug `balance=` is nonzero but the motors do not visibly respond until the lean is large, increase `MinBalanceMotorCommand` a little. If small corrections become jumpy, lower it or raise `MinBalanceBoostAngleDegrees`.
+
 ## Obstacle Check
 
 With the robot balancing, place an obstacle closer than the configured threshold and send `DRIVE 30 0`. Forward command should be clamped. `DRIVE -30 0` should still be allowed.

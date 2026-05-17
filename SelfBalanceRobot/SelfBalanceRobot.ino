@@ -29,6 +29,7 @@ float currentKd = Config::BalanceKd;
 void printDebug(const SensorFrame& frame, const ControlCommand& command,
                 const MotorCommand& motorOutput);
 bool commandAIsNewerOrSame(const ControlCommand& a, const ControlCommand& b);
+int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError);
 
 void setup() {
   Serial.begin(115200);
@@ -107,6 +108,8 @@ void loop() {
     if (Config::InvertBalanceOutput) {
       balanceOutput = -balanceOutput;
     }
+    balanceOutput =
+        applyMinimumBalanceCommand(balanceOutput, targetAngle - frame.angleDegrees);
     lastBalanceOutput = balanceOutput;
     motorOutput = mixer.mix(balanceOutput, 0, safe.turn);
     motors.write(motorOutput);
@@ -125,6 +128,29 @@ void loop() {
 
 bool commandAIsNewerOrSame(const ControlCommand& a, const ControlCommand& b) {
   return static_cast<long>(a.receivedMillis - b.receivedMillis) >= 0;
+}
+
+int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError) {
+  if (angleError < 0.0f) {
+    angleError = -angleError;
+  }
+  if (angleError < Config::MinBalanceBoostAngleDegrees ||
+      balanceOutput == 0) {
+    return balanceOutput;
+  }
+
+  const int16_t minimum = Config::MinBalanceMotorCommand;
+  if (minimum <= 0) {
+    return balanceOutput;
+  }
+
+  if (balanceOutput > 0 && balanceOutput < minimum) {
+    return minimum;
+  }
+  if (balanceOutput < 0 && balanceOutput > -minimum) {
+    return static_cast<int16_t>(-minimum);
+  }
+  return balanceOutput;
 }
 
 void printMode(RobotMode mode) {

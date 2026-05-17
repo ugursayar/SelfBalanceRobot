@@ -28,12 +28,12 @@ namespace Config {
 
   constexpr float BalanceKp = 32.0f;
   constexpr float BalanceKi = 0.0f;
-  constexpr float BalanceKd = 0.65f;
+  constexpr float BalanceKd = 0.20f;
   constexpr float SmallErrorDegrees = 4.0f;
-  constexpr float SmallErrorGainScale = 0.15f;
-  constexpr float MinBalanceBoostAngleDegrees = 1.0f;
+  constexpr float SmallErrorGainScale = 0.18f;
+  constexpr float MinBalanceBoostAngleDegrees = 2.0f;
 
-  constexpr float BalanceAngleTrimDegrees = 0.5f;
+  constexpr float BalanceAngleTrimDegrees = 0.0f;
   constexpr float MaxTargetLeanDegrees = 3.0f;
   constexpr float FallAngleDegrees = 35.0f;
   constexpr float StillAngleDeltaDegrees = 4.0f;
@@ -48,7 +48,7 @@ namespace Config {
   constexpr float MaxRuntimeKd = 20.0f;
 
   constexpr int16_t MotorDeadband = 0;
-  constexpr int16_t MinBalanceMotorCommand = 24;
+  constexpr int16_t MinBalanceMotorCommand = 18;
   constexpr int16_t MaxMotorCommand = 255;
   constexpr int16_t MaxTurnCommand = 30;
   constexpr int16_t MaxDriveCommand = 30;

@@ -4,6 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+namespace {
+char toUpperAscii(char value) {
+  if (value >= 'a' && value <= 'z') {
+    return static_cast<char>(value - ('a' - 'A'));
+  }
+  return value;
+}
+} // namespace
+
 BluetoothControl::BluetoothControl(Stream* stream)
     : stream_(stream), command_(), buffer_(), length_(0), overflow_(false) {}
 
@@ -65,14 +74,14 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
     return;
   }
 
-  if (strcmp(command, "ARM") == 0) {
+  if (commandEquals(command, "ARM")) {
     command_.arm = true;
     command_.stop = false;
     markReceived(nowMillis);
     return;
   }
 
-  if (strcmp(command, "STOP") == 0) {
+  if (commandEquals(command, "STOP")) {
     command_.arm = false;
     command_.stop = true;
     command_.driveEnabled = false;
@@ -82,7 +91,7 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
     return;
   }
 
-  if (strcmp(command, "BALANCE") == 0) {
+  if (commandEquals(command, "BALANCE")) {
     command_.arm = false;
     command_.stop = false;
     command_.driveEnabled = false;
@@ -92,7 +101,7 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
     return;
   }
 
-  if (strcmp(command, "DRIVE") == 0) {
+  if (commandEquals(command, "DRIVE")) {
     char* forward = strtok(0, " \t");
     char* turn = strtok(0, " \t");
     if (!forward || !turn) {
@@ -115,7 +124,7 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
     return;
   }
 
-  if (strcmp(command, "PID") == 0 && Config::EnableRuntimeTuning) {
+  if (commandEquals(command, "PID") && Config::EnableRuntimeTuning) {
     char* kp = strtok(0, " \t");
     char* ki = strtok(0, " \t");
     char* kd = strtok(0, " \t");
@@ -145,6 +154,23 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
 
 void BluetoothControl::markReceived(unsigned long nowMillis) {
   command_.receivedMillis = nowMillis;
+}
+
+bool BluetoothControl::commandEquals(const char* actual,
+                                     const char* expected) const {
+  if (!actual || !expected) {
+    return false;
+  }
+
+  while (*actual != '\0' && *expected != '\0') {
+    if (toUpperAscii(*actual) != *expected) {
+      return false;
+    }
+    ++actual;
+    ++expected;
+  }
+
+  return *actual == '\0' && *expected == '\0';
 }
 
 bool BluetoothControl::parseIntegerToken(const char* token, long* value) const {

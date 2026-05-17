@@ -26,6 +26,7 @@ private:
   void readByte(char value, unsigned long nowMillis);
   void parseLine(char* line, unsigned long nowMillis);
   void markReceived(unsigned long nowMillis);
+  bool commandEquals(const char* actual, const char* expected) const;
   bool parseIntegerToken(const char* token, long* value) const;
   bool parseFloatToken(const char* token, float* value) const;
   bool tuningInRange(float kp, float ki, float kd) const;

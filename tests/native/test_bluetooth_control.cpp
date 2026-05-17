@@ -140,6 +140,22 @@ static void test_crlf_line_endings_are_accepted() {
   assert(command.turn == -7);
 }
 
+static void test_lowercase_commands_are_accepted() {
+  ControlCommand command = parseCommand("arm\n", 51);
+  assert(command.arm);
+  assert(command.receivedMillis == 51);
+
+  command = parseCommand("drive 9 -3\n", 52);
+  assert(command.driveEnabled);
+  assert(command.forward == 9);
+  assert(command.turn == -3);
+
+  command = parseCommand("pid 20 0 0.5\n", 53);
+  assert(command.hasTuning);
+  assert(std::fabs(command.tuneKp - 20.0f) < 0.001f);
+  assert(std::fabs(command.tuneKd - 0.5f) < 0.001f);
+}
+
 static void test_valid_pid_is_one_shot_after_consume() {
   FakeStream stream("PID 12.5 0.1 0.9\n");
   BluetoothControl bluetooth;
@@ -176,6 +192,7 @@ int main() {
   test_drive_clamps_to_config_limits();
   test_malformed_drive_is_rejected_without_changing_previous_command();
   test_crlf_line_endings_are_accepted();
+  test_lowercase_commands_are_accepted();
   test_valid_pid_is_one_shot_after_consume();
   test_malformed_non_finite_and_extreme_pid_are_rejected();
 

@@ -10,6 +10,8 @@ Use short tests and keep the robot held securely until motor direction and balan
 - `DRIVE <forward> <turn>`: enable drive mode. Example: `DRIVE 20 0`.
 - `PID <kp> <ki> <kd>`: update balance gains when runtime tuning is enabled.
 
+Commands are case-insensitive, so `arm`, `drive 20 0`, and `pid 35 0 0.9` also work.
+
 ## First Checks
 
 1. Upload with wheels off the ground.
@@ -35,10 +37,10 @@ Start with small tests:
 
 You can tune gains without re-uploading by sending a `PID` command from Serial Monitor. Examples:
 
-- `PID 25 0 0.7`
-- `PID 35 0 0.9`
-- `PID 45 0 1.1`
-- `PID 60 0 1.4`
+- `pid 25 0 0.7`
+- `pid 35 0 0.9`
+- `pid 45 0 1.1`
+- `pid 60 0 1.4`
 
 If debug `left=` and `right=` are near `MaxMotorCommand` while the robot still cannot recover, increase `MaxMotorCommand`. If they are not near the limit, increase `BalanceKp` first.
 

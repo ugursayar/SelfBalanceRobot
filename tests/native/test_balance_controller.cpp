@@ -65,14 +65,15 @@ static void test_non_positive_dt_returns_zero_without_state_update() {
   assert(controller.update(0.0f, 1.0f) == 30);
 }
 
-static void test_small_errors_use_reduced_proportional_gain() {
+static void test_small_errors_ramp_proportional_gain() {
   BalanceController controller;
   controller.setTunings(30.0f, 0.0f, 0.0f);
   controller.setGainSchedule(2.0f, 0.35f);
   controller.setOutputLimit(200);
   controller.setTargetAngle(0.0f);
 
-  assert(controller.update(-1.0f, 0.02f) == 10);
+  assert(controller.update(-1.0f, 0.02f) == 20);
+  assert(controller.update(-2.0f, 0.02f) == 60);
   assert(controller.update(-6.0f, 0.02f) == 180);
 }
 
@@ -81,7 +82,7 @@ int main() {
   test_negative_limit_is_stored_positive();
   test_reset_clears_integral_and_previous_error();
   test_non_positive_dt_returns_zero_without_state_update();
-  test_small_errors_use_reduced_proportional_gain();
+  test_small_errors_ramp_proportional_gain();
 
   std::cout << "test_balance_controller PASS\n";
   return EXIT_SUCCESS;

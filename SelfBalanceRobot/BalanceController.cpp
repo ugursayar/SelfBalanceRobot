@@ -13,6 +13,10 @@ float clampFloat(float value, float minimum, float maximum) {
   }
   return value;
 }
+
+float absoluteFloat(float value) {
+  return value < 0.0f ? -value : value;
+}
 } // namespace
 
 BalanceController::BalanceController()
@@ -72,9 +76,13 @@ int16_t BalanceController::update(float measuredAngleDegrees,
   hasPreviousError_ = true;
 
   float proportionalGain = kp_;
-  if (smallErrorDegrees_ > 0.0f &&
-      error >= -smallErrorDegrees_ && error <= smallErrorDegrees_) {
-    proportionalGain *= smallErrorGainScale_;
+  const float absoluteError = absoluteFloat(error);
+  if (smallErrorDegrees_ > 0.0f && absoluteError <= smallErrorDegrees_) {
+    const float ramp =
+        clampFloat(absoluteError / smallErrorDegrees_, 0.0f, 1.0f);
+    const float gainScale =
+        smallErrorGainScale_ + ((1.0f - smallErrorGainScale_) * ramp);
+    proportionalGain *= gainScale;
   }
 
   const float rawOutput = (proportionalGain * error) + (ki_ * integral_) +

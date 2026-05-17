@@ -46,7 +46,7 @@ namespace Config {
   constexpr float MinRuntimeKd = 0.0f;
   constexpr float MaxRuntimeKd = 20.0f;
 
-  constexpr int16_t MotorDeadband = 5;
+  constexpr int16_t MotorDeadband = 0;
   constexpr int16_t MaxMotorCommand = 255;
   constexpr int16_t MaxTurnCommand = 30;
   constexpr int16_t MaxDriveCommand = 30;

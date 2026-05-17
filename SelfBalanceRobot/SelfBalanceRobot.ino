@@ -22,6 +22,7 @@ SensorFrame lastFrame;
 ControlCommand lastCommand;
 MotorCommand lastMotorOutput;
 float lastTargetAngle = 0.0f;
+int16_t lastBalanceOutput = 0;
 float currentKp = Config::BalanceKp;
 float currentKd = Config::BalanceKd;
 
@@ -106,12 +107,14 @@ void loop() {
     if (Config::InvertBalanceOutput) {
       balanceOutput = -balanceOutput;
     }
+    lastBalanceOutput = balanceOutput;
     motorOutput = mixer.mix(balanceOutput, 0, safe.turn);
     motors.write(motorOutput);
     lastCommand = safe;
   } else {
     balance.reset();
     motors.stop();
+    lastBalanceOutput = 0;
     lastCommand = command;
   }
 
@@ -169,6 +172,8 @@ void printDebug(const SensorFrame& frame, const ControlCommand& command,
   Serial.print(command.forward);
   Serial.print(F(" turn="));
   Serial.print(command.turn);
+  Serial.print(F(" balance="));
+  Serial.print(lastBalanceOutput);
   Serial.print(F(" left="));
   Serial.print(motorOutput.left);
   Serial.print(F(" right="));

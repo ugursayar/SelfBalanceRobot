@@ -44,6 +44,8 @@ You can tune gains without re-uploading by sending a `PID` command from Serial M
 
 If debug `left=` and `right=` are near `MaxMotorCommand` while the robot still cannot recover, increase `MaxMotorCommand`. If they are not near the limit, increase `BalanceKp` first.
 
+If debug `balance=` changes but `left=` and `right=` stay at zero, software deadband is too high. Keep `MotorDeadband` low or `0` while tuning balance.
+
 ## Obstacle Check
 
 With the robot balancing, place an obstacle closer than the configured threshold and send `DRIVE 30 0`. Forward command should be clamped. `DRIVE -30 0` should still be allowed.

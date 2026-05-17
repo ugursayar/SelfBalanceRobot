@@ -28,7 +28,9 @@ struct ControlCommand {
   float tuneKp = 0.0f;
   float tuneKi = 0.0f;
   float tuneKd = 0.0f;
+  float tuneTrimDegrees = 0.0f;
   bool hasTuning = false;
+  bool hasTrim = false;
   unsigned long receivedMillis = 0;
 };
 

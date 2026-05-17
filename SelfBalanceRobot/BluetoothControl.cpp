@@ -40,6 +40,8 @@ const ControlCommand& BluetoothControl::current() const { return command_; }
 
 void BluetoothControl::consumeTuning() { command_.hasTuning = false; }
 
+void BluetoothControl::consumeTrim() { command_.hasTrim = false; }
+
 void BluetoothControl::readByte(char value, unsigned long nowMillis) {
   if (value == '\r') {
     return;
@@ -149,6 +151,25 @@ void BluetoothControl::parseLine(char* line, unsigned long nowMillis) {
     command_.tuneKd = parsedKd;
     command_.hasTuning = true;
     markReceived(nowMillis);
+    return;
+  }
+
+  if (commandEquals(command, "TRIM") && Config::EnableRuntimeTuning) {
+    char* trim = strtok(0, " \t");
+    if (!trim) {
+      return;
+    }
+
+    float parsedTrim = 0.0f;
+    if (!parseFloatToken(trim, &parsedTrim) || !trimInRange(parsedTrim)) {
+      return;
+    }
+
+    command_.arm = false;
+    command_.stop = false;
+    command_.tuneTrimDegrees = parsedTrim;
+    command_.hasTrim = true;
+    markReceived(nowMillis);
   }
 }
 
@@ -207,6 +228,11 @@ bool BluetoothControl::tuningInRange(float kp, float ki, float kd) const {
   return kp >= Config::MinRuntimeKp && kp <= Config::MaxRuntimeKp &&
          ki >= Config::MinRuntimeKi && ki <= Config::MaxRuntimeKi &&
          kd >= Config::MinRuntimeKd && kd <= Config::MaxRuntimeKd;
+}
+
+bool BluetoothControl::trimInRange(float trimDegrees) const {
+  return trimDegrees >= Config::MinRuntimeTrimDegrees &&
+         trimDegrees <= Config::MaxRuntimeTrimDegrees;
 }
 
 int16_t BluetoothControl::clampCommand(long value, int16_t limit) const {

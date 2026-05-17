@@ -50,6 +50,8 @@ namespace Config {
   constexpr float MaxRuntimeKi = 10.0f;
   constexpr float MinRuntimeKd = 0.0f;
   constexpr float MaxRuntimeKd = 20.0f;
+  constexpr float MinRuntimeTrimDegrees = -5.0f;
+  constexpr float MaxRuntimeTrimDegrees = 5.0f;
 
   constexpr int16_t MotorDeadband = 0;
   constexpr int16_t MinBalanceMotorCommand = 18;

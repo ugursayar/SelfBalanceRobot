@@ -13,6 +13,7 @@ public:
   const ControlCommand& update(unsigned long nowMillis);
   const ControlCommand& current() const;
   void consumeTuning();
+  void consumeTrim();
 
 private:
   static const uint8_t BufferSize = 48;
@@ -30,6 +31,7 @@ private:
   bool parseIntegerToken(const char* token, long* value) const;
   bool parseFloatToken(const char* token, float* value) const;
   bool tuningInRange(float kp, float ki, float kd) const;
+  bool trimInRange(float trimDegrees) const;
   int16_t clampCommand(long value, int16_t limit) const;
 };
 

@@ -9,8 +9,9 @@ Use short tests and keep the robot held securely until motor direction and balan
 - `BALANCE`: leave drive mode but keep balancing.
 - `DRIVE <forward> <turn>`: enable drive mode. Example: `DRIVE 20 0`.
 - `PID <kp> <ki> <kd>`: update balance gains when runtime tuning is enabled.
+- `TRIM <degrees>`: update the upright target trim while balancing. Example: `TRIM -0.5`.
 
-Commands are case-insensitive, so `arm`, `drive 20 0`, and `pid 35 0 0.9` also work.
+Commands are case-insensitive, so `arm`, `drive 20 0`, `pid 35 0 0.9`, and `trim -0.5` also work.
 
 ## First Checks
 
@@ -42,6 +43,8 @@ You can tune gains without re-uploading by sending a `PID` command from Serial M
 - `pid 35 0 0.9`
 - `pid 45 0 1.1`
 - `pid 60 0 1.4`
+
+Use `TRIM` while the robot is balancing to find the standing lean before changing the default `BalanceAngleTrimDegrees`. Try small steps such as `trim 0.3`, `trim -0.3`, `trim 0.6`, or `trim -0.6`.
 
 If debug `left=` and `right=` are near `MaxMotorCommand` while the robot still cannot recover, increase `MaxMotorCommand`. If they are not near the limit, increase `BalanceKp` first.
 

@@ -29,6 +29,7 @@ int16_t lastBalanceOutput = 0;
 float lastDriftCorrection = 0.0f;
 float currentKp = Config::BalanceKp;
 float currentKd = Config::BalanceKd;
+float currentTrimDegrees = Config::BalanceAngleTrimDegrees;
 RobotMode lastReportedMode = RobotMode::Disarmed;
 
 void printDebug(const SensorFrame& frame, const ControlCommand& command,
@@ -99,6 +100,15 @@ void loop() {
     }
   }
 
+  if (command.hasTrim) {
+    currentTrimDegrees = command.tuneTrimDegrees;
+    if (useUsbCommand) {
+      usbCommands.consumeTrim();
+    } else {
+      bluetooth.consumeTrim();
+    }
+  }
+
   const RobotMode previousMode = robotState.mode();
   robotState.update(frame, command);
   const RobotMode currentMode = robotState.mode();
@@ -125,7 +135,7 @@ void loop() {
       lastDriftCorrection = drift.update(lastWheelFeedback);
     }
     const float targetAngle =
-        uprightAngle + Config::BalanceAngleTrimDegrees +
+        uprightAngle + currentTrimDegrees +
         lastDriftCorrection +
         driveRatio * Config::MaxTargetLeanDegrees;
 
@@ -248,6 +258,8 @@ void printDebug(const SensorFrame& frame, const ControlCommand& command,
   Serial.print(lastBalanceOutput);
   Serial.print(F(" drift="));
   Serial.print(lastDriftCorrection);
+  Serial.print(F(" trim="));
+  Serial.print(currentTrimDegrees);
   Serial.print(F(" pos="));
   Serial.print(lastWheelFeedback.averagePositionDegrees);
   Serial.print(F(" speed="));

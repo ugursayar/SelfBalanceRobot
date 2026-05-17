@@ -109,6 +109,14 @@ static void test_non_arm_commands_clear_sticky_arm_intent() {
   assert(!command.arm);
   assert(!command.stop);
   assert(command.hasTuning);
+
+  FakeStream trimStream("ARM\nTRIM 0.5\n");
+  BluetoothControl trimBluetooth;
+  trimBluetooth.begin(trimStream);
+  command = trimBluetooth.update(30);
+  assert(!command.arm);
+  assert(!command.stop);
+  assert(command.hasTrim);
 }
 
 static void test_drive_clamps_to_config_limits() {
@@ -154,6 +162,10 @@ static void test_lowercase_commands_are_accepted() {
   assert(command.hasTuning);
   assert(std::fabs(command.tuneKp - 20.0f) < 0.001f);
   assert(std::fabs(command.tuneKd - 0.5f) < 0.001f);
+
+  command = parseCommand("trim -0.75\n", 54);
+  assert(command.hasTrim);
+  assert(std::fabs(command.tuneTrimDegrees + 0.75f) < 0.001f);
 }
 
 static void test_valid_pid_is_one_shot_after_consume() {
@@ -173,6 +185,21 @@ static void test_valid_pid_is_one_shot_after_consume() {
   assert(!bluetooth.current().hasTuning);
 }
 
+static void test_valid_trim_is_one_shot_after_consume() {
+  FakeStream stream("TRIM 1.25\n");
+  BluetoothControl bluetooth;
+  bluetooth.begin(stream);
+
+  const ControlCommand& command = bluetooth.update(65);
+
+  assert(command.hasTrim);
+  assert(std::fabs(command.tuneTrimDegrees - 1.25f) < 0.001f);
+
+  bluetooth.consumeTrim();
+
+  assert(!bluetooth.current().hasTrim);
+}
+
 static void test_malformed_non_finite_and_extreme_pid_are_rejected() {
   FakeStream stream("PID no 0 1\nPID inf 0 1\nPID 9999 0 1\n");
   BluetoothControl bluetooth;
@@ -181,6 +208,17 @@ static void test_malformed_non_finite_and_extreme_pid_are_rejected() {
   const ControlCommand& command = bluetooth.update(70);
 
   assert(!command.hasTuning);
+  assert(command.receivedMillis == 0);
+}
+
+static void test_malformed_non_finite_and_extreme_trim_are_rejected() {
+  FakeStream stream("TRIM no\nTRIM inf\nTRIM 99\n");
+  BluetoothControl bluetooth;
+  bluetooth.begin(stream);
+
+  const ControlCommand& command = bluetooth.update(75);
+
+  assert(!command.hasTrim);
   assert(command.receivedMillis == 0);
 }
 
@@ -194,7 +232,9 @@ int main() {
   test_crlf_line_endings_are_accepted();
   test_lowercase_commands_are_accepted();
   test_valid_pid_is_one_shot_after_consume();
+  test_valid_trim_is_one_shot_after_consume();
   test_malformed_non_finite_and_extreme_pid_are_rejected();
+  test_malformed_non_finite_and_extreme_trim_are_rejected();
 
   std::cout << "test_bluetooth_control PASS\n";
   return EXIT_SUCCESS;

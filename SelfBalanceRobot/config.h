@@ -17,8 +17,8 @@ namespace Config {
   constexpr uint8_t RightEncoderSlot = 1;
   constexpr uint8_t LeftEncoderSlot = 2;
 
-  constexpr bool InvertRightMotor = false;
-  constexpr bool InvertLeftMotor = true;
+  constexpr bool InvertRightMotor = true;
+  constexpr bool InvertLeftMotor = false;
   constexpr bool InvertBalanceOutput = true;
 
   constexpr unsigned long BalanceLoopMicros = 10000UL;

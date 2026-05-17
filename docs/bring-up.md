@@ -37,6 +37,7 @@ You can tune gains without re-uploading by sending a `PID` command from Serial M
 - `PID 25 0 0.7`
 - `PID 35 0 0.9`
 - `PID 45 0 1.1`
+- `PID 60 0 1.4`
 
 If debug `left=` and `right=` are near `MaxMotorCommand` while the robot still cannot recover, increase `MaxMotorCommand`. If they are not near the limit, increase `BalanceKp` first.
 

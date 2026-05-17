@@ -25,9 +25,11 @@ float lastTargetAngle = 0.0f;
 int16_t lastBalanceOutput = 0;
 float currentKp = Config::BalanceKp;
 float currentKd = Config::BalanceKd;
+RobotMode lastReportedMode = RobotMode::Disarmed;
 
 void printDebug(const SensorFrame& frame, const ControlCommand& command,
                 const MotorCommand& motorOutput);
+void printModeChangeIfNeeded();
 bool commandAIsNewerOrSame(const ControlCommand& a, const ControlCommand& b);
 int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError);
 
@@ -123,6 +125,7 @@ void loop() {
 
   lastFrame = frame;
   lastMotorOutput = motorOutput;
+  printModeChangeIfNeeded();
   printDebug(lastFrame, lastCommand, lastMotorOutput);
 }
 
@@ -171,6 +174,23 @@ void printMode(RobotMode mode) {
     Serial.print(F("fault"));
     break;
   }
+}
+
+void printModeChangeIfNeeded() {
+  const RobotMode mode = robotState.mode();
+  if (mode == lastReportedMode) {
+    return;
+  }
+
+  lastReportedMode = mode;
+  if (!Config::EnableDebugSerial) {
+    return;
+  }
+
+  Serial.print(F("mode-change="));
+  printMode(mode);
+  Serial.print(F(" upright="));
+  Serial.println(robotState.uprightAngleDegrees());
 }
 
 void printDebug(const SensorFrame& frame, const ControlCommand& command,

@@ -26,7 +26,7 @@ namespace Config {
   constexpr unsigned long CommandTimeoutMillis = 1500UL;
   constexpr unsigned long CalibrationMillis = 1200UL;
 
-  constexpr float BalanceKp = 32.0f;
+  constexpr float BalanceKp = 28.0f;
   constexpr float BalanceKi = 0.0f;
   constexpr float BalanceKd = 0.20f;
   constexpr float SmallErrorDegrees = 4.0f;

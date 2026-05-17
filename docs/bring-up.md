@@ -26,7 +26,7 @@ Use short tests and keep the robot held securely until motor direction and balan
 Start with small tests:
 
 1. Keep `BalanceKi` at `0.0`.
-2. If the robot shakes only near upright, reduce `SmallErrorGainScale` or increase `SmallErrorDegrees` in `config.h`.
+2. If the robot shakes only near upright, reduce `SmallErrorGainScale`, reduce `BalanceKd`, or increase `SmallErrorDegrees` in `config.h`.
 3. If the robot shakes quickly at larger lean angles, reduce `BalanceKp`, `BalanceKd`, or `MaxMotorCommand`.
 4. If the robot falls without correcting strongly enough, increase `BalanceKp` in small steps and, only if the debug output shows motor commands near `MaxMotorCommand`, increase `MaxMotorCommand`.
 5. Increase `BalanceKd` only enough to damp slow oscillation.

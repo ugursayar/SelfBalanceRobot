@@ -19,6 +19,8 @@ void Motors::begin() {
 WheelFeedback Motors::updateFeedback() {
   rightMotor_.updateSpeed();
   leftMotor_.updateSpeed();
+  rightMotor_.updateCurPos();
+  leftMotor_.updateCurPos();
 
   feedback_.rightPositionDegrees =
       applyPositionInversion(rightMotor_.getCurPos(), Config::InvertRightMotor);

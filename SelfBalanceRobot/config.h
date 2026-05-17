@@ -37,7 +37,7 @@ namespace Config {
   constexpr float DriftPositionKp = 0.004f;
   constexpr float DriftSpeedKp = 0.018f;
   constexpr float MaxDriftCorrectionDegrees = 2.0f;
-  constexpr bool InvertDriftCorrection = false;
+  constexpr bool InvertDriftCorrection = true;
   constexpr float MaxTargetLeanDegrees = 3.0f;
   constexpr float FallAngleDegrees = 35.0f;
   constexpr float StillAngleDeltaDegrees = 4.0f;

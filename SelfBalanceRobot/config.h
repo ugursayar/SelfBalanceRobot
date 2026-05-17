@@ -29,6 +29,8 @@ namespace Config {
   constexpr float BalanceKp = 32.0f;
   constexpr float BalanceKi = 0.0f;
   constexpr float BalanceKd = 0.9f;
+  constexpr float SmallErrorDegrees = 2.0f;
+  constexpr float SmallErrorGainScale = 0.35f;
 
   constexpr float BalanceAngleTrimDegrees = 0.5f;
   constexpr float MaxTargetLeanDegrees = 3.0f;

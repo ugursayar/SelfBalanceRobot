@@ -16,14 +16,22 @@ float clampFloat(float value, float minimum, float maximum) {
 } // namespace
 
 BalanceController::BalanceController()
-    : kp_(0.0f), ki_(0.0f), kd_(0.0f), targetAngleDegrees_(0.0f),
-      integral_(0.0f), previousError_(0.0f), outputLimit_(255),
-      hasPreviousError_(false) {}
+    : kp_(0.0f), ki_(0.0f), kd_(0.0f), smallErrorDegrees_(0.0f),
+      smallErrorGainScale_(1.0f), targetAngleDegrees_(0.0f), integral_(0.0f),
+      previousError_(0.0f), outputLimit_(255), hasPreviousError_(false) {}
 
 void BalanceController::setTunings(float kp, float ki, float kd) {
   kp_ = kp;
   ki_ = ki;
   kd_ = kd;
+}
+
+void BalanceController::setGainSchedule(float smallErrorDegrees,
+                                        float smallErrorGainScale) {
+  smallErrorDegrees_ = smallErrorDegrees < 0.0f ? -smallErrorDegrees
+                                                : smallErrorDegrees;
+  smallErrorGainScale_ =
+      clampFloat(smallErrorGainScale, 0.0f, 1.0f);
 }
 
 void BalanceController::setTargetAngle(float targetAngleDegrees) {
@@ -63,7 +71,13 @@ int16_t BalanceController::update(float measuredAngleDegrees,
   previousError_ = error;
   hasPreviousError_ = true;
 
-  const float rawOutput = (kp_ * error) + (ki_ * integral_) +
+  float proportionalGain = kp_;
+  if (smallErrorDegrees_ > 0.0f &&
+      error >= -smallErrorDegrees_ && error <= smallErrorDegrees_) {
+    proportionalGain *= smallErrorGainScale_;
+  }
+
+  const float rawOutput = (proportionalGain * error) + (ki_ * integral_) +
                           (kd_ * derivative);
   const float limitedOutput =
       clampFloat(rawOutput, -static_cast<float>(outputLimit_),

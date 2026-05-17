@@ -26,11 +26,12 @@ Use short tests and keep the robot held securely until motor direction and balan
 Start with small tests:
 
 1. Keep `BalanceKi` at `0.0`.
-2. If the robot shakes quickly, reduce `BalanceKp`, `BalanceKd`, or `MaxMotorCommand` in `config.h`.
-3. If the robot falls without correcting strongly enough, increase `BalanceKp` in small steps and, only if the debug output shows motor commands near `MaxMotorCommand`, increase `MaxMotorCommand`.
-4. Increase `BalanceKd` only enough to damp slow oscillation.
-5. If correction starts strong but then rolls consistently in one direction, adjust `BalanceAngleTrimDegrees` by small amounts such as `0.5` or `-0.5`.
-6. Add a very small `BalanceKi` only after proportional, derivative, motor limit, and trim are close.
+2. If the robot shakes only near upright, reduce `SmallErrorGainScale` or increase `SmallErrorDegrees` in `config.h`.
+3. If the robot shakes quickly at larger lean angles, reduce `BalanceKp`, `BalanceKd`, or `MaxMotorCommand`.
+4. If the robot falls without correcting strongly enough, increase `BalanceKp` in small steps and, only if the debug output shows motor commands near `MaxMotorCommand`, increase `MaxMotorCommand`.
+5. Increase `BalanceKd` only enough to damp slow oscillation.
+6. If correction starts strong but then rolls consistently in one direction, adjust `BalanceAngleTrimDegrees` by small amounts such as `0.5` or `-0.5`.
+7. Add a very small `BalanceKi` only after proportional, derivative, motor limit, and trim are close.
 
 You can tune gains without re-uploading by sending a `PID` command from Serial Monitor. Examples:
 

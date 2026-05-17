@@ -8,6 +8,7 @@ public:
   BalanceController();
 
   void setTunings(float kp, float ki, float kd);
+  void setGainSchedule(float smallErrorDegrees, float smallErrorGainScale);
   void setTargetAngle(float targetAngleDegrees);
   void setOutputLimit(int16_t outputLimit);
   void reset();
@@ -17,6 +18,8 @@ private:
   float kp_;
   float ki_;
   float kd_;
+  float smallErrorDegrees_;
+  float smallErrorGainScale_;
   float targetAngleDegrees_;
   float integral_;
   float previousError_;

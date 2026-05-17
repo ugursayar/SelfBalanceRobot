@@ -39,6 +39,8 @@ void setup() {
   usbCommands.begin(Serial);
 
   balance.setTunings(Config::BalanceKp, Config::BalanceKi, Config::BalanceKd);
+  balance.setGainSchedule(Config::SmallErrorDegrees,
+                          Config::SmallErrorGainScale);
   balance.setOutputLimit(Config::MaxMotorCommand);
 
   mixer.setLimits(Config::MaxMotorCommand, Config::MaxDriveCommand,

@@ -1,5 +1,6 @@
 #include "BalanceController.h"
 #include "BluetoothControl.h"
+#include "DriftController.h"
 #include "DriveMixer.h"
 #include "Motors.h"
 #include "RobotState.h"
@@ -13,6 +14,7 @@ Motors motors;
 BluetoothControl bluetooth;
 BluetoothControl usbCommands;
 BalanceController balance;
+DriftController drift;
 DriveMixer mixer;
 RobotState robotState;
 
@@ -21,8 +23,10 @@ unsigned long lastDebugMillis = 0;
 SensorFrame lastFrame;
 ControlCommand lastCommand;
 MotorCommand lastMotorOutput;
+WheelFeedback lastWheelFeedback;
 float lastTargetAngle = 0.0f;
 int16_t lastBalanceOutput = 0;
+float lastDriftCorrection = 0.0f;
 float currentKp = Config::BalanceKp;
 float currentKd = Config::BalanceKd;
 RobotMode lastReportedMode = RobotMode::Disarmed;
@@ -46,6 +50,9 @@ void setup() {
   balance.setGainSchedule(Config::SmallErrorDegrees,
                           Config::SmallErrorGainScale);
   balance.setOutputLimit(Config::MaxMotorCommand);
+  drift.configure(Config::DriftPositionKp, Config::DriftSpeedKp,
+                  Config::MaxDriftCorrectionDegrees,
+                  Config::InvertDriftCorrection);
 
   mixer.setLimits(Config::MaxMotorCommand, Config::MaxDriveCommand,
                   Config::MaxTurnCommand, Config::MotorDeadband);
@@ -75,6 +82,7 @@ void loop() {
   const unsigned long nowMillis = millis();
 
   const SensorFrame& frame = sensors.update(nowMillis);
+  const WheelFeedback wheelFeedback = motors.updateFeedback();
   const ControlCommand& bluetoothCommand = bluetooth.update(nowMillis);
   const ControlCommand& usbCommand = usbCommands.update(nowMillis);
   const bool useUsbCommand = commandAIsNewerOrSame(usbCommand, bluetoothCommand);
@@ -91,7 +99,17 @@ void loop() {
     }
   }
 
+  const RobotMode previousMode = robotState.mode();
   robotState.update(frame, command);
+  const RobotMode currentMode = robotState.mode();
+  if (previousMode != currentMode &&
+      (currentMode == RobotMode::Balancing || currentMode == RobotMode::Drive)) {
+    motors.resetTravel();
+    lastWheelFeedback = motors.updateFeedback();
+    drift.reset(lastWheelFeedback);
+  } else {
+    lastWheelFeedback = wheelFeedback;
+  }
 
   MotorCommand motorOutput;
   if (robotState.motorsEnabled()) {
@@ -100,8 +118,15 @@ void loop() {
     const float driveRatio =
         static_cast<float>(safe.forward) /
         static_cast<float>(Config::MaxDriveCommand);
+    if (safe.forward != 0) {
+      drift.reset(lastWheelFeedback);
+      lastDriftCorrection = 0.0f;
+    } else {
+      lastDriftCorrection = drift.update(lastWheelFeedback);
+    }
     const float targetAngle =
         uprightAngle + Config::BalanceAngleTrimDegrees +
+        lastDriftCorrection +
         driveRatio * Config::MaxTargetLeanDegrees;
 
     lastTargetAngle = targetAngle;
@@ -120,6 +145,7 @@ void loop() {
     balance.reset();
     motors.stop();
     lastBalanceOutput = 0;
+    lastDriftCorrection = 0.0f;
     lastCommand = command;
   }
 
@@ -220,6 +246,12 @@ void printDebug(const SensorFrame& frame, const ControlCommand& command,
   Serial.print(command.turn);
   Serial.print(F(" balance="));
   Serial.print(lastBalanceOutput);
+  Serial.print(F(" drift="));
+  Serial.print(lastDriftCorrection);
+  Serial.print(F(" pos="));
+  Serial.print(lastWheelFeedback.averagePositionDegrees);
+  Serial.print(F(" speed="));
+  Serial.print(lastWheelFeedback.averageSpeedRpm);
   Serial.print(F(" left="));
   Serial.print(motorOutput.left);
   Serial.print(F(" right="));

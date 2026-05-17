@@ -14,8 +14,8 @@ namespace Config {
   constexpr uint8_t UltrasonicPort = 0x07;
   constexpr GyroAxis BalanceGyroAxis = GyroAxis::X;
 
-  constexpr uint8_t RightMotorPort = 0x09;
-  constexpr uint8_t LeftMotorPort = 0x0a;
+  constexpr uint8_t RightEncoderSlot = 1;
+  constexpr uint8_t LeftEncoderSlot = 2;
 
   constexpr bool InvertRightMotor = false;
   constexpr bool InvertLeftMotor = true;
@@ -34,6 +34,10 @@ namespace Config {
   constexpr float MinBalanceBoostAngleDegrees = 2.0f;
 
   constexpr float BalanceAngleTrimDegrees = 0.0f;
+  constexpr float DriftPositionKp = 0.004f;
+  constexpr float DriftSpeedKp = 0.018f;
+  constexpr float MaxDriftCorrectionDegrees = 2.0f;
+  constexpr bool InvertDriftCorrection = false;
   constexpr float MaxTargetLeanDegrees = 3.0f;
   constexpr float FallAngleDegrees = 35.0f;
   constexpr float StillAngleDeltaDegrees = 4.0f;

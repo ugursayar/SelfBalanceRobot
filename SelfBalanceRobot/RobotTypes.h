@@ -37,4 +37,13 @@ struct MotorCommand {
   int16_t right = 0;
 };
 
+struct WheelFeedback {
+  long leftPositionDegrees = 0;
+  long rightPositionDegrees = 0;
+  float leftSpeedRpm = 0.0f;
+  float rightSpeedRpm = 0.0f;
+  float averagePositionDegrees = 0.0f;
+  float averageSpeedRpm = 0.0f;
+};
+
 #endif

@@ -4,9 +4,9 @@ CXXFLAGS ?= -std=gnu++11 -Wall -Wextra -Werror
 ROOT := ../..
 BUILD_DIR := build
 
-.PHONY: all test_balance_controller test_drive_mixer test_robot_state test_bluetooth_control test_sensors clean
+.PHONY: all test_balance_controller test_drift_controller test_drive_mixer test_robot_state test_bluetooth_control test_sensors clean
 
-all: test_balance_controller test_drive_mixer test_robot_state test_bluetooth_control test_sensors
+all: test_balance_controller test_drift_controller test_drive_mixer test_robot_state test_bluetooth_control test_sensors
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -25,6 +25,12 @@ $(BUILD_DIR)/test_balance_controller: test_balance_controller.cpp $(ROOT)/SelfBa
 
 test_balance_controller: $(BUILD_DIR)/test_balance_controller
 	./$(BUILD_DIR)/test_balance_controller
+
+$(BUILD_DIR)/test_drift_controller: test_drift_controller.cpp $(ROOT)/SelfBalanceRobot/DriftController.cpp $(ROOT)/SelfBalanceRobot/DriftController.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_drift_controller.cpp $(ROOT)/SelfBalanceRobot/DriftController.cpp -o $@
+
+test_drift_controller: $(BUILD_DIR)/test_drift_controller
+	./$(BUILD_DIR)/test_drift_controller
 
 $(BUILD_DIR)/test_drive_mixer: test_drive_mixer.cpp $(ROOT)/SelfBalanceRobot/DriveMixer.cpp $(ROOT)/SelfBalanceRobot/DriveMixer.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_drive_mixer.cpp $(ROOT)/SelfBalanceRobot/DriveMixer.cpp -o $@

@@ -20,7 +20,7 @@ static ControlCommand command(unsigned long receivedMillis) {
 
 static void test_arm_calibrates_and_balances() {
   RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 100, 150);
+  state.configure(30.0f, 4.0f, 100, 150);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -40,7 +40,7 @@ static void test_arm_calibrates_and_balances() {
 
 static void test_stale_arm_command_is_rejected() {
   RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 100, 50);
+  state.configure(30.0f, 4.0f, 100, 50);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -53,7 +53,7 @@ static void test_stale_arm_command_is_rejected() {
 
 static void test_stale_gyro_at_calibration_completion_faults() {
   RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 100, 150);
+  state.configure(30.0f, 4.0f, 100, 150);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -71,7 +71,7 @@ static void test_stale_gyro_at_calibration_completion_faults() {
 
 static void test_wide_calibration_sample_count_does_not_wrap() {
   RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 70000, 100000);
+  state.configure(30.0f, 4.0f, 70000, 100000);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -86,7 +86,7 @@ static void test_wide_calibration_sample_count_does_not_wrap() {
 
 static void test_stop_disarms_immediately() {
   RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 0, 50);
+  state.configure(30.0f, 4.0f, 0, 50);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -102,7 +102,7 @@ static void test_stop_disarms_immediately() {
 
 static void test_fall_faults_when_balancing() {
   RobotState state;
-  state.configure(20.0f, 4.0f, 20.0f, 0, 50);
+  state.configure(20.0f, 4.0f, 0, 50);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -115,61 +115,9 @@ static void test_fall_faults_when_balancing() {
   assert(!state.motorsEnabled());
 }
 
-static void test_obstacle_blocks_forward_only() {
-  RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 0, 50);
-
-  ControlCommand cmd = command(0);
-  cmd.arm = true;
-  state.update(sensor(0.0f, 0), cmd);
-
-  cmd.driveEnabled = true;
-  cmd.forward = 40;
-  cmd.turn = 12;
-  cmd.receivedMillis = 1;
-  SensorFrame frame = sensor(0.0f, 1);
-  state.update(frame, cmd);
-  assert(state.mode() == RobotMode::Drive);
-
-  frame.distanceCm = 10.0f;
-  frame.ultrasonicFresh = true;
-  ControlCommand safe = state.safeCommand(cmd, frame);
-
-  assert(safe.forward == 0);
-  assert(safe.turn == 12);
-
-  cmd.forward = -40;
-  safe = state.safeCommand(cmd, frame);
-  assert(safe.forward == -40);
-  assert(safe.turn == 12);
-}
-
-static void test_stale_safe_command_zeros_drive_inputs() {
-  RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 0, 50);
-
-  ControlCommand cmd = command(0);
-  cmd.arm = true;
-  state.update(sensor(0.0f, 0), cmd);
-
-  cmd.driveEnabled = true;
-  cmd.forward = 40;
-  cmd.turn = 12;
-  cmd.receivedMillis = 1;
-  SensorFrame frame = sensor(0.0f, 1);
-  state.update(frame, cmd);
-  assert(state.mode() == RobotMode::Drive);
-
-  frame.nowMillis = 52;
-  ControlCommand safe = state.safeCommand(cmd, frame);
-
-  assert(safe.forward == 0);
-  assert(safe.turn == 0);
-}
-
 static void test_calibration_faults_when_robot_moves_too_much() {
   RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 100, 150);
+  state.configure(30.0f, 4.0f, 100, 150);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -185,7 +133,7 @@ static void test_calibration_faults_when_robot_moves_too_much() {
 
 static void test_calibration_faults_when_arm_expires_before_finish() {
   RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 100, 50);
+  state.configure(30.0f, 4.0f, 100, 50);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -201,7 +149,7 @@ static void test_calibration_faults_when_arm_expires_before_finish() {
 
 static void test_calibration_faults_when_startup_angle_is_too_tilted() {
   RobotState state;
-  state.configure(30.0f, 4.0f, 20.0f, 100, 150);
+  state.configure(30.0f, 4.0f, 100, 150);
 
   ControlCommand cmd = command(0);
   cmd.arm = true;
@@ -215,6 +163,37 @@ static void test_calibration_faults_when_startup_angle_is_too_tilted() {
   assert(!state.motorsEnabled());
 }
 
+static void test_start_balancing_at_sets_absolute_upright_angle() {
+  RobotState state;
+  state.configure(30.0f, 4.0f, 100, 150);
+
+  assert(state.startBalancingAt(0.7f));
+
+  assert(state.mode() == RobotMode::Balancing);
+  assert(state.motorsEnabled());
+  assert(state.uprightAngleDegrees() == 0.7f);
+}
+
+static void test_start_balancing_at_is_ignored_when_not_disarmed() {
+  RobotState state;
+  state.configure(30.0f, 4.0f, 100, 150);
+
+  assert(state.startBalancingAt(0.7f));
+  assert(!state.startBalancingAt(2.0f));
+
+  assert(state.uprightAngleDegrees() == 0.7f);
+}
+
+static void test_start_balancing_at_rejects_tilted_startup_angle() {
+  RobotState state;
+  state.configure(30.0f, 4.0f, 100, 150);
+
+  assert(!state.startBalancingAt(15.0f));
+
+  assert(state.mode() == RobotMode::Disarmed);
+  assert(!state.motorsEnabled());
+}
+
 int main() {
   test_arm_calibrates_and_balances();
   test_stale_arm_command_is_rejected();
@@ -222,11 +201,12 @@ int main() {
   test_wide_calibration_sample_count_does_not_wrap();
   test_stop_disarms_immediately();
   test_fall_faults_when_balancing();
-  test_obstacle_blocks_forward_only();
-  test_stale_safe_command_zeros_drive_inputs();
   test_calibration_faults_when_robot_moves_too_much();
   test_calibration_faults_when_arm_expires_before_finish();
   test_calibration_faults_when_startup_angle_is_too_tilted();
+  test_start_balancing_at_sets_absolute_upright_angle();
+  test_start_balancing_at_is_ignored_when_not_disarmed();
+  test_start_balancing_at_rejects_tilted_startup_angle();
 
   std::cout << "test_robot_state PASS\n";
   return EXIT_SUCCESS;

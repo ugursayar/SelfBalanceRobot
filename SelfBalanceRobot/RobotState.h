@@ -8,15 +8,15 @@ public:
   RobotState();
 
   void configure(float fallAngleDegrees, float stillAngleDeltaDegrees,
-                 float obstacleDistanceCm, unsigned long calibrationMillis,
+                 unsigned long calibrationMillis,
                  unsigned long commandTimeoutMillis);
   void update(const SensorFrame& frame, const ControlCommand& command);
-  ControlCommand safeCommand(const ControlCommand& command,
-                             const SensorFrame& frame) const;
+  bool startBalancingAt(float uprightAngleDegrees);
 
   RobotMode mode() const;
   bool motorsEnabled() const;
   float uprightAngleDegrees() const;
+  float calibrationRangeDegrees() const;
 
 private:
   bool commandIsFresh(const ControlCommand& command,
@@ -31,12 +31,13 @@ private:
   RobotMode mode_;
   float fallAngleDegrees_;
   float stillAngleDeltaDegrees_;
-  float obstacleDistanceCm_;
   unsigned long calibrationMillis_;
   unsigned long commandTimeoutMillis_;
   unsigned long calibrationStartMillis_;
   unsigned long calibrationArmMillis_;
   float calibrationInitialAngleDegrees_;
+  float calibrationMinAngleDegrees_;
+  float calibrationMaxAngleDegrees_;
   float calibrationSumDegrees_;
   uint32_t calibrationSamples_;
   float uprightAngleDegrees_;

@@ -6,21 +6,20 @@
 
 RobotState::RobotState()
     : mode_(RobotMode::Disarmed), fallAngleDegrees_(30.0f),
-      stillAngleDeltaDegrees_(4.0f), obstacleDistanceCm_(20.0f),
-      calibrationMillis_(1000), commandTimeoutMillis_(250),
+      stillAngleDeltaDegrees_(4.0f), calibrationMillis_(1000),
+      commandTimeoutMillis_(250),
       calibrationStartMillis_(0), calibrationArmMillis_(0),
       calibrationInitialAngleDegrees_(0.0f),
+      calibrationMinAngleDegrees_(0.0f), calibrationMaxAngleDegrees_(0.0f),
       calibrationSumDegrees_(0.0f), calibrationSamples_(0),
       uprightAngleDegrees_(0.0f) {}
 
 void RobotState::configure(float fallAngleDegrees,
                            float stillAngleDeltaDegrees,
-                           float obstacleDistanceCm,
                            unsigned long calibrationMillis,
                            unsigned long commandTimeoutMillis) {
   fallAngleDegrees_ = fallAngleDegrees;
   stillAngleDeltaDegrees_ = stillAngleDeltaDegrees;
-  obstacleDistanceCm_ = obstacleDistanceCm;
   calibrationMillis_ = calibrationMillis;
   commandTimeoutMillis_ = commandTimeoutMillis;
 }
@@ -60,18 +59,6 @@ void RobotState::update(const SensorFrame& frame,
   case RobotMode::Balancing:
     if (!frame.gyroFresh || hasFallen(frame.angleDegrees)) {
       mode_ = RobotMode::Fault;
-    } else if (command.driveEnabled &&
-               commandIsFresh(command, frame.nowMillis)) {
-      mode_ = RobotMode::Drive;
-    }
-    break;
-
-  case RobotMode::Drive:
-    if (!frame.gyroFresh || hasFallen(frame.angleDegrees)) {
-      mode_ = RobotMode::Fault;
-    } else if (!command.driveEnabled ||
-               !commandIsFresh(command, frame.nowMillis)) {
-      mode_ = RobotMode::Balancing;
     }
     break;
 
@@ -80,32 +67,36 @@ void RobotState::update(const SensorFrame& frame,
   }
 }
 
-ControlCommand RobotState::safeCommand(const ControlCommand& command,
-                                       const SensorFrame& frame) const {
-  ControlCommand safe = command;
-
-  if (mode_ != RobotMode::Drive ||
-      !commandIsFresh(command, frame.nowMillis)) {
-    safe.forward = 0;
-    safe.turn = 0;
-    return safe;
+bool RobotState::startBalancingAt(float uprightAngleDegrees) {
+  if (mode_ != RobotMode::Disarmed) {
+    return false;
+  }
+  if (uprightAngleDegrees != uprightAngleDegrees ||
+      fabs(uprightAngleDegrees) > Config::MaxStartupUprightAngleDegrees) {
+    return false;
   }
 
-  if (frame.ultrasonicFresh && frame.distanceCm > 0.0f &&
-      frame.distanceCm < obstacleDistanceCm_ && safe.forward > 0) {
-    safe.forward = 0;
-  }
-
-  return safe;
+  calibrationInitialAngleDegrees_ = uprightAngleDegrees;
+  calibrationMinAngleDegrees_ = uprightAngleDegrees;
+  calibrationMaxAngleDegrees_ = uprightAngleDegrees;
+  calibrationSumDegrees_ = uprightAngleDegrees;
+  calibrationSamples_ = 1;
+  uprightAngleDegrees_ = uprightAngleDegrees;
+  mode_ = RobotMode::Balancing;
+  return true;
 }
 
 RobotMode RobotState::mode() const { return mode_; }
 
 bool RobotState::motorsEnabled() const {
-  return mode_ == RobotMode::Balancing || mode_ == RobotMode::Drive;
+  return mode_ == RobotMode::Balancing;
 }
 
 float RobotState::uprightAngleDegrees() const { return uprightAngleDegrees_; }
+
+float RobotState::calibrationRangeDegrees() const {
+  return calibrationMaxAngleDegrees_ - calibrationMinAngleDegrees_;
+}
 
 bool RobotState::commandIsFresh(const ControlCommand& command,
                                 unsigned long nowMillis) const {
@@ -126,6 +117,8 @@ void RobotState::startCalibration(const SensorFrame& frame,
   calibrationStartMillis_ = frame.nowMillis;
   calibrationArmMillis_ = command.receivedMillis;
   calibrationInitialAngleDegrees_ = frame.angleDegrees;
+  calibrationMinAngleDegrees_ = frame.angleDegrees;
+  calibrationMaxAngleDegrees_ = frame.angleDegrees;
   calibrationSumDegrees_ = 0.0f;
   calibrationSamples_ = 0;
   addCalibrationSample(frame);
@@ -134,6 +127,13 @@ void RobotState::startCalibration(const SensorFrame& frame,
 bool RobotState::addCalibrationSample(const SensorFrame& frame) {
   if (!frame.gyroFresh) {
     return true;
+  }
+
+  if (frame.angleDegrees < calibrationMinAngleDegrees_) {
+    calibrationMinAngleDegrees_ = frame.angleDegrees;
+  }
+  if (frame.angleDegrees > calibrationMaxAngleDegrees_) {
+    calibrationMaxAngleDegrees_ = frame.angleDegrees;
   }
 
   if (fabs(frame.angleDegrees - calibrationInitialAngleDegrees_) >

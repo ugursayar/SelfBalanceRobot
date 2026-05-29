@@ -118,6 +118,16 @@ bool BalancePointStore::saveBalancePoint(float angleDegrees) {
   return true;
 }
 
+void BalancePointStore::clearBalancePoint(float fallbackDegrees) {
+  for (uint8_t slot = 0; slot < kSlotCount; ++slot) {
+    writeByte(slotOffset(slot), 0xFF);
+  }
+  balancePointDegrees_ = fallbackDegrees;
+  writeCounter_ = 0;
+  hasStoredBalancePoint_ = false;
+  activeSlot_ = kNoActiveSlot;
+}
+
 bool BalancePointStore::angleInRange(float angleDegrees) const {
   return angleDegrees >= minimumDegrees_ && angleDegrees <= maximumDegrees_;
 }

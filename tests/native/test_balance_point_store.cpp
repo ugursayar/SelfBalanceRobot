@@ -160,6 +160,25 @@ static void test_out_of_range_values_are_not_saved() {
   assert(store.balancePointDegrees() == 0.7f);
 }
 
+static void test_clear_invalidates_records_and_uses_fallback() {
+  FakeStorage storage;
+  BalancePointStore writer = storeFor(storage);
+  assert(!writer.begin(0.7f));
+  assert(writer.saveBalancePoint(1.25f));
+  assert(writer.saveBalancePoint(2.5f));
+
+  writer.clearBalancePoint(0.7f);
+  assert(!writer.hasStoredBalancePoint());
+  assert(writer.balancePointDegrees() == 0.7f);
+  assert(writer.writeCounter() == 0);
+
+  BalancePointStore reader = storeFor(storage);
+  assert(!reader.begin(0.7f));
+  assert(!reader.hasStoredBalancePoint());
+  assert(reader.balancePointDegrees() == 0.7f);
+  assert(reader.writeCounter() == 0);
+}
+
 int main() {
   test_empty_eeprom_uses_fallback();
   test_save_and_reload_valid_balance_point();
@@ -170,6 +189,7 @@ int main() {
   test_nonzero_base_address_works();
   test_stored_out_of_range_record_is_rejected();
   test_out_of_range_values_are_not_saved();
+  test_clear_invalidates_records_and_uses_fallback();
 
   std::cout << "test_balance_point_store PASS\n";
   return EXIT_SUCCESS;

@@ -20,6 +20,7 @@ public:
   float balancePointDegrees() const;
   uint32_t writeCounter() const;
   bool saveBalancePoint(float angleDegrees);
+  void clearBalancePoint(float fallbackDegrees);
 
 private:
   static const uint8_t kMagic0 = 0x42;

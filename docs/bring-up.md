@@ -2,9 +2,9 @@
 
 Use short tests and keep the robot held securely until motor direction and balance correction direction are confirmed.
 
-## Serial Commands
+## USB and Bluetooth Commands
 
-All commands are case-insensitive (e.g. `ARM` and `arm` both work). Set line ending to `Newline` or `Both NL & CR` in Serial Monitor.
+Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `Serial` at 115200 baud. Bluetooth test control uses `Serial1` at 115200 baud when `EnableBluetoothTestControl` is true.
 
 | Command | Description |
 |---|---|
@@ -14,8 +14,17 @@ All commands are case-insensitive (e.g. `ARM` and `arm` both work). Set line end
 | `M-` | Brief motor test: both wheels drive forward. Robot must be disarmed. |
 | `PID <kp> <ki> <kd>` | Update balance gains live. Example: `pid 42 0 0.18` |
 | `TRIM <degrees>` | Shift the upright target while balancing. Example: `trim -0.5` |
+| `BP?` | Print current balance point, stored/default status, and EEPROM write count. |
+| `BP SET <degrees>` | Persist an absolute balance point for auto-arm tests while stopped/disarmed. Example: `bp set 0.85` |
+| `BP <degrees>` | Short alias for `BP SET <degrees>`. |
+| `BP CLEAR` | Clear learned EEPROM balance point, fall back to default, stop motors, and suppress auto-arm briefly. |
+| `AUTO ON` / `AUTO OFF` | Enable or disable auto-arm until reset. |
+| `LEARN ON` / `LEARN OFF` | Enable or disable balance-point EEPROM learning until reset. |
+| `STATUS` | Print one diagnostic snapshot. |
+| `TELEM ON` / `TELEM OFF` | Enable or disable periodic shorter Bluetooth telemetry at a slower period than USB debug output. |
 
 `PID` and `TRIM` take effect on the next balance loop tick and print a confirmation line to Serial.
+`BP SET` is rejected while motors are enabled; send it only while stopped/disarmed.
 
 Auto-arm is enabled by default. If EEPROM contains a valid learned balance point, or if the configured default balance point is close enough for the current build, the robot can enter balancing without a serial `ARM` when it is held nearly still near that angle. `STOP` still disarms immediately and starts a short auto-arm cooldown.
 
@@ -55,6 +64,17 @@ The first angular rate sample after release is the best predictor of outcome:
 5. If it re-arms too aggressively after a catch, send `STOP` while connected or power-cycle and increase `AutoArmStopCooldownMillis`.
 
 The learned balance point is stored in EEPROM as an absolute gyro angle. During stable balancing, firmware may update it slowly using `BalancePointLearningAlpha`, but it will not write continuously while the robot is unstable.
+
+## Bluetooth Cable-Free Test Flow
+
+1. Upload over USB, then disconnect the USB cable.
+2. Connect to the Bluetooth serial module at 115200 baud.
+3. Send `STOP`, `AUTO OFF`, `LEARN OFF`, and `BP CLEAR`.
+4. Send `STATUS` and confirm `angle=` changes when tipping forward/backward.
+5. For manual tests, hold the robot still and send `ARM`.
+6. If it falls forward immediately, stop, adjust the target in small steps, and retry. Use `TRIM <degrees>` for manual calibration sessions and `BP SET <degrees>` for auto-arm sessions.
+7. Once a cable-free balance point works for short tests, stop/disarm, send `BP SET <degrees>`, then test `AUTO ON`.
+8. Turn `LEARN ON` back on only after the robot can balance without immediate divergence.
 
 ## Balance Tuning
 

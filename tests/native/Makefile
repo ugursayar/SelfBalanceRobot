@@ -4,9 +4,9 @@ CXXFLAGS ?= -std=gnu++11 -Wall -Wextra -Werror
 ROOT := ../..
 BUILD_DIR := build
 
-.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store clean
+.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner clean
 
-all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store
+all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -34,6 +34,12 @@ $(BUILD_DIR)/test_balance_point_store: test_balance_point_store.cpp $(ROOT)/Self
 
 test_balance_point_store: $(BUILD_DIR)/test_balance_point_store
 	./$(BUILD_DIR)/test_balance_point_store
+
+$(BUILD_DIR)/test_balance_point_learner: test_balance_point_learner.cpp $(ROOT)/SelfBalanceRobot/BalancePointLearner.cpp $(ROOT)/SelfBalanceRobot/BalancePointLearner.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_balance_point_learner.cpp $(ROOT)/SelfBalanceRobot/BalancePointLearner.cpp -o $@
+
+test_balance_point_learner: $(BUILD_DIR)/test_balance_point_learner
+	./$(BUILD_DIR)/test_balance_point_learner
 
 $(BUILD_DIR)/test_robot_state: test_robot_state.cpp $(ROOT)/SelfBalanceRobot/RobotState.cpp $(ROOT)/SelfBalanceRobot/RobotState.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(ROOT)/SelfBalanceRobot/config.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_robot_state.cpp $(ROOT)/SelfBalanceRobot/RobotState.cpp -o $@

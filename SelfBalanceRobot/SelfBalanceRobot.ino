@@ -1,74 +1,132 @@
+#include "AutoArmController.h"
 #include "BalanceController.h"
-#include "BluetoothControl.h"
-#include "DriftController.h"
-#include "DriveMixer.h"
+#include "BalancePointLearner.h"
+#include "BalancePointStore.h"
+#include "EepromByteStorage.h"
 #include "Motors.h"
 #include "RobotState.h"
 #include "Sensors.h"
 #include "config.h"
 
 #include <MeMegaPi.h>
+#include <string.h>
 
 Sensors sensors;
 Motors motors;
-BluetoothControl bluetooth;
-BluetoothControl usbCommands;
 BalanceController balance;
-DriftController drift;
-DriveMixer mixer;
 RobotState robotState;
+EepromByteStorage eepromStorage;
+BalancePointStore balancePointStore(eepromStorage,
+                                    Config::BalancePointEepromAddress);
+AutoArmController autoArm;
+BalancePointLearner balancePointLearner;
 
 unsigned long lastBalanceMicros = 0;
 unsigned long lastDebugMillis = 0;
+unsigned long lastLoopMicros = 0;
+unsigned long motorTestUntilMillis = 0;
 SensorFrame lastFrame;
-ControlCommand lastCommand;
+ControlCommand command;
 MotorCommand lastMotorOutput;
 WheelFeedback lastWheelFeedback;
 float lastTargetAngle = 0.0f;
+int16_t lastRawBalanceOutput = 0;
 int16_t lastBalanceOutput = 0;
-float lastDriftCorrection = 0.0f;
-float currentKp = Config::BalanceKp;
-float currentKd = Config::BalanceKd;
-float currentTrimDegrees = Config::BalanceAngleTrimDegrees;
+float lastTravelHoldTargetCorrection = 0.0f;
 RobotMode lastReportedMode = RobotMode::Disarmed;
+float currentTrimDegrees = Config::BalanceAngleTrimDegrees;
+float currentKp = Config::BalanceKp;
+float currentKi = Config::BalanceKi;
+float currentKd = Config::BalanceKd;
+bool statusLedOn = false;
+unsigned long lastStatusLedToggleMillis = 0;
+unsigned long balancingStartMillis = 0;
+bool balanceSessionUsesPersistedPoint = false;
+float activeBalancePointDegrees = Config::AutoArmDefaultBalancePointDegrees;
 
-void printDebug(const SensorFrame& frame, const ControlCommand& command,
-                const MotorCommand& motorOutput);
-void printModeChangeIfNeeded();
-bool commandAIsNewerOrSame(const ControlCommand& a, const ControlCommand& b);
+void readUsbCommand(unsigned long nowMillis);
+void configureAutoArmAndLearning();
+void printBalancePointStatus(bool loaded);
+void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm);
+bool manualArmAttemptIsFresh(unsigned long nowMillis);
+void updateBalancePointLearning(const SensorFrame& frame,
+                                float baseTargetDegrees,
+                                int16_t balanceOutput,
+                                unsigned long nowMillis);
+void applyRuntimePid(float kp, float ki, float kd);
+void applyRuntimeTrim(float trimDegrees);
+void startMotorTest(int16_t output, unsigned long nowMillis);
+float baseBalanceTargetDegrees();
+float clampWheelSpeedTargetCorrection(float correctionDegrees);
+float clampTravelHoldTargetCorrection(float correctionDegrees);
+int16_t clampMotorCommand(float command);
+int16_t applyLargeLeanBoost(int16_t balanceOutput, float angleError);
 int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError);
+void printMode(RobotMode mode);
+void printModeChangeIfNeeded();
+void printDebug(const SensorFrame& frame);
+void updateStatusLed(unsigned long nowMillis);
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
+
   Serial.begin(115200);
-  Serial1.begin(115200);
 
   sensors.begin();
   motors.begin();
-  bluetooth.begin(Serial1);
-  usbCommands.begin(Serial);
 
   balance.setTunings(Config::BalanceKp, Config::BalanceKi, Config::BalanceKd);
-  balance.setGainSchedule(Config::SmallErrorDegrees,
-                          Config::SmallErrorGainScale);
+  balance.setIntegralLimit(Config::IntegralLimitDegreesSeconds);
+  balance.setRateFilter(Config::BalanceRateFilterAlpha);
   balance.setOutputLimit(Config::MaxMotorCommand);
-  drift.configure(Config::DriftPositionKp, Config::DriftSpeedKp,
-                  Config::MaxDriftCorrectionDegrees,
-                  Config::InvertDriftCorrection);
 
-  mixer.setLimits(Config::MaxMotorCommand, Config::MaxDriveCommand,
-                  Config::MaxTurnCommand, Config::MotorDeadband);
+  configureAutoArmAndLearning();
 
   robotState.configure(Config::FallAngleDegrees,
                        Config::StillAngleDeltaDegrees,
-                       Config::ObstacleStopDistanceCm,
                        Config::CalibrationMillis,
                        Config::CommandTimeoutMillis);
 
   lastBalanceMicros = micros();
 
   if (Config::EnableDebugSerial) {
-    Serial.println(F("SelfBalanceRobot ready. Send commands over Bluetooth or USB Serial Monitor with newline."));
+    Serial.println(F("SelfBalanceRobot balance-only ready. Send arm or stop."));
   }
+}
+
+void configureAutoArmAndLearning() {
+  balancePointStore.configure(Config::MinPersistedBalancePointDegrees,
+                              Config::MaxPersistedBalancePointDegrees);
+  const bool loaded =
+      balancePointStore.begin(Config::AutoArmDefaultBalancePointDegrees);
+  activeBalancePointDegrees = balancePointStore.balancePointDegrees();
+
+  autoArm.configure(Config::AutoArmAngleWindowDegrees,
+                    Config::AutoArmMaxRateDegPerSec,
+                    Config::AutoArmStillMillis);
+  autoArm.setTargetBalancePoint(activeBalancePointDegrees);
+
+  balancePointLearner.configure(Config::BalancePointLearningSettleMillis,
+                                Config::BalancePointLearningStableMillis,
+                                Config::BalancePointMinWriteIntervalMillis,
+                                Config::BalancePointLearningMaxAngleErrorDegrees,
+                                Config::BalancePointLearningMaxRateDegPerSec,
+                                Config::BalancePointLearningMaxMotorCommand,
+                                Config::BalancePointLearningAlpha);
+  printBalancePointStatus(loaded);
+}
+
+void printBalancePointStatus(bool loaded) {
+  if (!Config::EnableDebugSerial) {
+    return;
+  }
+
+  Serial.print(F("balance-point "));
+  Serial.print(loaded ? F("loaded=") : F("default="));
+  Serial.print(balancePointStore.balancePointDegrees());
+  Serial.print(F(" writes="));
+  Serial.println(balancePointStore.writeCounter());
 }
 
 void loop() {
@@ -78,103 +136,315 @@ void loop() {
     return;
   }
   lastBalanceMicros = nowMicros;
+  lastLoopMicros = elapsedMicros;
 
   const float dtSeconds = static_cast<float>(elapsedMicros) * 0.000001f;
   const unsigned long nowMillis = millis();
 
+  readUsbCommand(nowMillis);
+
   const SensorFrame& frame = sensors.update(nowMillis);
-  const WheelFeedback wheelFeedback = motors.updateFeedback();
-  const ControlCommand& bluetoothCommand = bluetooth.update(nowMillis);
-  const ControlCommand& usbCommand = usbCommands.update(nowMillis);
-  const bool useUsbCommand = commandAIsNewerOrSame(usbCommand, bluetoothCommand);
-  const ControlCommand& command = useUsbCommand ? usbCommand : bluetoothCommand;
-
-  if (command.hasTuning) {
-    currentKp = command.tuneKp;
-    currentKd = command.tuneKd;
-    balance.setTunings(command.tuneKp, command.tuneKi, command.tuneKd);
-    if (useUsbCommand) {
-      usbCommands.consumeTuning();
-    } else {
-      bluetooth.consumeTuning();
-    }
-  }
-
-  if (command.hasTrim) {
-    currentTrimDegrees = command.tuneTrimDegrees;
-    if (useUsbCommand) {
-      usbCommands.consumeTrim();
-    } else {
-      bluetooth.consumeTrim();
-    }
-  }
+  lastWheelFeedback = motors.updateFeedback();
 
   const RobotMode previousMode = robotState.mode();
   robotState.update(frame, command);
+  if (command.stop) {
+    command.stop = false;
+    autoArm.suppressUntil(nowMillis, Config::AutoArmStopCooldownMillis);
+    balanceSessionUsesPersistedPoint = false;
+  }
+  handleAutoArm(frame, previousMode);
   const RobotMode currentMode = robotState.mode();
-  if (previousMode != currentMode &&
-      (currentMode == RobotMode::Balancing || currentMode == RobotMode::Drive)) {
+  if (previousMode != currentMode && currentMode == RobotMode::Balancing) {
     motors.resetTravel();
     lastWheelFeedback = motors.updateFeedback();
-    drift.reset(lastWheelFeedback);
-  } else {
-    lastWheelFeedback = wheelFeedback;
+    balance.reset();
+    lastBalanceOutput = 0;
+    balancingStartMillis = nowMillis;
+    if (!balanceSessionUsesPersistedPoint) {
+      activeBalancePointDegrees =
+          robotState.uprightAngleDegrees() + currentTrimDegrees;
+    }
+    balancePointLearner.reset(balancePointStore.balancePointDegrees(),
+                              nowMillis);
   }
 
-  MotorCommand motorOutput;
   if (robotState.motorsEnabled()) {
-    const ControlCommand safe = robotState.safeCommand(command, frame);
-    const float uprightAngle = robotState.uprightAngleDegrees();
-    const float driveRatio =
-        static_cast<float>(safe.forward) /
-        static_cast<float>(Config::MaxDriveCommand);
-    if (safe.forward != 0) {
-      drift.reset(lastWheelFeedback);
-      lastDriftCorrection = 0.0f;
+    const float speedCorrection = clampWheelSpeedTargetCorrection(
+        lastWheelFeedback.averageSpeedRpm *
+        Config::WheelSpeedTargetCorrectionDegreesPerRpm);
+    lastTravelHoldTargetCorrection = clampTravelHoldTargetCorrection(
+        lastWheelFeedback.averagePositionDegrees *
+        Config::TravelHoldTargetDegreesPerWheelDegree);
+    // Ramp the target from uprightAngle to (upright+trim) over
+    // BalanceTargetRampMillis to avoid large initial error spikes.
+    const float baseTarget = baseBalanceTargetDegrees();
+    const float finalTarget = baseTarget + speedCorrection +
+                              lastTravelHoldTargetCorrection;
+    const unsigned long rampMs = Config::BalanceTargetRampMillis;
+    const unsigned long elapsed = nowMillis - balancingStartMillis;
+    const float rampStartTarget = balanceSessionUsesPersistedPoint
+                                      ? baseTarget
+                                      : robotState.uprightAngleDegrees();
+    if (elapsed < rampMs) {
+      const float rampFraction = static_cast<float>(elapsed) /
+                                 static_cast<float>(rampMs);
+      lastTargetAngle = rampStartTarget +
+                        rampFraction * (finalTarget - rampStartTarget);
     } else {
-      lastDriftCorrection = drift.update(lastWheelFeedback);
+      lastTargetAngle = finalTarget;
     }
-    const float targetAngle =
-        uprightAngle + currentTrimDegrees +
-        lastDriftCorrection +
-        driveRatio * Config::MaxTargetLeanDegrees;
+    balance.setTargetAngle(lastTargetAngle);
 
-    lastTargetAngle = targetAngle;
-    balance.setTargetAngle(targetAngle);
-    int16_t balanceOutput = balance.update(frame.angleDegrees, dtSeconds);
-    if (Config::InvertBalanceOutput) {
-      balanceOutput = -balanceOutput;
-    }
+    int16_t balanceOutput = balance.update(frame.angleDegrees,
+                                           frame.angleRateDegPerSec,
+                                           dtSeconds);
+    lastRawBalanceOutput = balanceOutput;
     balanceOutput =
-        applyMinimumBalanceCommand(balanceOutput, targetAngle - frame.angleDegrees);
+        applyMinimumBalanceCommand(balanceOutput,
+                                   lastTargetAngle - frame.angleDegrees);
+    balanceOutput =
+        applyLargeLeanBoost(balanceOutput,
+                            lastTargetAngle - frame.angleDegrees);
+    const float angleError = lastTargetAngle - frame.angleDegrees;
+    const float absAngleError = angleError < 0.0f ? -angleError : angleError;
+    if (absAngleError <= Config::WheelSpeedDampingMaxAngleErrorDegrees) {
+      balanceOutput = clampMotorCommand(
+          static_cast<float>(balanceOutput) -
+          (lastWheelFeedback.averageSpeedRpm *
+           Config::WheelSpeedDampingCommandPerRpm));
+    }
+
     lastBalanceOutput = balanceOutput;
-    motorOutput = mixer.mix(balanceOutput, 0, safe.turn);
-    motors.write(motorOutput);
-    lastCommand = safe;
+    updateBalancePointLearning(frame, baseTarget, balanceOutput, nowMillis);
+    lastMotorOutput.left = balanceOutput;
+    lastMotorOutput.right = balanceOutput;
+    motors.write(lastMotorOutput);
+  } else if (static_cast<long>(motorTestUntilMillis - nowMillis) > 0) {
+    motors.write(lastMotorOutput);
   } else {
     balance.reset();
     motors.stop();
+    lastTargetAngle = robotState.uprightAngleDegrees();
+    lastRawBalanceOutput = 0;
     lastBalanceOutput = 0;
-    lastDriftCorrection = 0.0f;
-    lastCommand = command;
+    lastTravelHoldTargetCorrection = 0.0f;
+    lastMotorOutput = MotorCommand();
   }
 
   lastFrame = frame;
-  lastMotorOutput = motorOutput;
+  updateStatusLed(nowMillis);
   printModeChangeIfNeeded();
-  printDebug(lastFrame, lastCommand, lastMotorOutput);
+  printDebug(lastFrame);
 }
 
-bool commandAIsNewerOrSame(const ControlCommand& a, const ControlCommand& b) {
-  return static_cast<long>(a.receivedMillis - b.receivedMillis) >= 0;
+void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm) {
+  if (!Config::EnableAutoArm) {
+    return;
+  }
+
+  if (modeBeforeAutoArm != RobotMode::Disarmed ||
+      robotState.mode() != RobotMode::Disarmed ||
+      manualArmAttemptIsFresh(frame.nowMillis) || command.stop ||
+      static_cast<long>(motorTestUntilMillis - frame.nowMillis) > 0) {
+    autoArm.reset();
+    return;
+  }
+
+  if (!autoArm.update(frame)) {
+    return;
+  }
+
+  activeBalancePointDegrees = balancePointStore.balancePointDegrees();
+  if (robotState.startBalancingAt(activeBalancePointDegrees)) {
+    balanceSessionUsesPersistedPoint = true;
+    if (Config::EnableDebugSerial) {
+      Serial.print(F("auto-arm balancePoint="));
+      Serial.println(activeBalancePointDegrees);
+    }
+  }
+}
+
+bool manualArmAttemptIsFresh(unsigned long nowMillis) {
+  return command.arm &&
+         nowMillis - command.receivedMillis <= Config::CommandTimeoutMillis;
+}
+
+void updateBalancePointLearning(const SensorFrame& frame,
+                                float baseTargetDegrees,
+                                int16_t balanceOutput,
+                                unsigned long nowMillis) {
+  const BalanceLearningResult result =
+      balancePointLearner.update(frame, baseTargetDegrees, balanceOutput,
+                                 nowMillis);
+  if (!result.shouldSave) {
+    return;
+  }
+
+  if (!balancePointStore.saveBalancePoint(result.balancePointDegrees)) {
+    return;
+  }
+
+  activeBalancePointDegrees = balancePointStore.balancePointDegrees();
+  autoArm.setTargetBalancePoint(activeBalancePointDegrees);
+  if (Config::EnableDebugSerial) {
+    Serial.print(F("balance-point saved="));
+    Serial.print(activeBalancePointDegrees);
+    Serial.print(F(" writes="));
+    Serial.println(balancePointStore.writeCounter());
+  }
+}
+
+void readUsbCommand(unsigned long nowMillis) {
+  static char buffer[32];
+  static uint8_t length = 0;
+
+  while (Serial.available() > 0) {
+    const char incoming = static_cast<char>(Serial.read());
+    if (incoming == '\r' || incoming == '\n') {
+      buffer[length] = '\0';
+      if (length > 0) {
+        if (strcmp(buffer, "arm") == 0) {
+          command.arm = true;
+          command.stop = false;
+          command.receivedMillis = nowMillis;
+        } else if (strcmp(buffer, "stop") == 0) {
+          command.arm = false;
+          command.stop = true;
+          command.receivedMillis = nowMillis;
+          motorTestUntilMillis = 0;
+          autoArm.suppressUntil(nowMillis, Config::AutoArmStopCooldownMillis);
+          balanceSessionUsesPersistedPoint = false;
+        } else if (strcmp(buffer, "m+") == 0) {
+          startMotorTest(Config::MotorTestCommand, nowMillis);
+        } else if (strcmp(buffer, "m-") == 0) {
+          startMotorTest(-Config::MotorTestCommand, nowMillis);
+        } else if (strncmp(buffer, "trim ", 5) == 0) {
+          applyRuntimeTrim(atof(buffer + 5));
+        } else if (strncmp(buffer, "pid ", 4) == 0) {
+          char* p = buffer + 4;
+          const float kp = atof(p);
+          char* sp1 = strchr(p, ' ');
+          if (sp1 != nullptr) {
+            const float ki = atof(++sp1);
+            char* sp2 = strchr(sp1, ' ');
+            if (sp2 != nullptr) {
+              applyRuntimePid(kp, ki, atof(++sp2));
+            }
+          }
+        }
+      }
+      length = 0;
+    } else if (length < sizeof(buffer) - 1) {
+      buffer[length++] = incoming >= 'A' && incoming <= 'Z'
+                             ? static_cast<char>(incoming + ('a' - 'A'))
+                             : incoming;
+    }
+  }
+}
+
+void applyRuntimePid(float kp, float ki, float kd) {
+  // clamp to safe ranges before touching the controller
+  if (kp < Config::MinRuntimeKp) kp = Config::MinRuntimeKp;
+  if (kp > Config::MaxRuntimeKp) kp = Config::MaxRuntimeKp;
+  if (ki < Config::MinRuntimeKi) ki = Config::MinRuntimeKi;
+  if (ki > Config::MaxRuntimeKi) ki = Config::MaxRuntimeKi;
+  if (kd < Config::MinRuntimeKd) kd = Config::MinRuntimeKd;
+  if (kd > Config::MaxRuntimeKd) kd = Config::MaxRuntimeKd;
+  currentKp = kp;
+  currentKi = ki;
+  currentKd = kd;
+  balance.setTunings(currentKp, currentKi, currentKd);
+  if (Config::EnableDebugSerial) {
+    Serial.print(F("pid-updated kp="));
+    Serial.print(currentKp);
+    Serial.print(F(" ki="));
+    Serial.print(currentKi);
+    Serial.print(F(" kd="));
+    Serial.println(currentKd);
+  }
+}
+
+void applyRuntimeTrim(float trimDegrees) {
+  if (trimDegrees < Config::MinRuntimeTrimDegrees)
+    trimDegrees = Config::MinRuntimeTrimDegrees;
+  if (trimDegrees > Config::MaxRuntimeTrimDegrees)
+    trimDegrees = Config::MaxRuntimeTrimDegrees;
+  currentTrimDegrees = trimDegrees;
+  if (Config::EnableDebugSerial) {
+    Serial.print(F("trim-updated="));
+    Serial.println(currentTrimDegrees);
+  }
+}
+
+void startMotorTest(int16_t output, unsigned long nowMillis) {
+  if (robotState.mode() != RobotMode::Disarmed) {
+    return;
+  }
+
+  lastMotorOutput.left = output;
+  lastMotorOutput.right = output;
+  motorTestUntilMillis = nowMillis + Config::MotorTestMillis;
+}
+
+float baseBalanceTargetDegrees() {
+  if (balanceSessionUsesPersistedPoint) {
+    return activeBalancePointDegrees;
+  }
+  return robotState.uprightAngleDegrees() + currentTrimDegrees;
+}
+
+float clampWheelSpeedTargetCorrection(float correctionDegrees) {
+  const float limit = Config::MaxWheelSpeedTargetCorrectionDegrees;
+  if (correctionDegrees > limit) {
+    return limit;
+  }
+  if (correctionDegrees < -limit) {
+    return -limit;
+  }
+  return correctionDegrees;
+}
+
+float clampTravelHoldTargetCorrection(float correctionDegrees) {
+  const float limit = Config::MaxTravelHoldTargetCorrectionDegrees;
+  if (correctionDegrees > limit) {
+    return limit;
+  }
+  if (correctionDegrees < -limit) {
+    return -limit;
+  }
+  return correctionDegrees;
+}
+
+int16_t clampMotorCommand(float command) {
+  if (command > Config::MaxMotorCommand) {
+    return Config::MaxMotorCommand;
+  }
+  if (command < -Config::MaxMotorCommand) {
+    return -Config::MaxMotorCommand;
+  }
+  return static_cast<int16_t>(command);
+}
+
+int16_t applyLargeLeanBoost(int16_t balanceOutput, float angleError) {
+  const float absAngleError = angleError < 0.0f ? -angleError : angleError;
+  if (absAngleError <= Config::LargeLeanBoostAngleDegrees) {
+    return balanceOutput;
+  }
+
+  const float extra =
+      (absAngleError - Config::LargeLeanBoostAngleDegrees) *
+      Config::LargeLeanBoostCommandPerDegree;
+  const float correctionDirection = angleError < 0.0f ? 1.0f : -1.0f;
+  return clampMotorCommand(static_cast<float>(balanceOutput) +
+                           (correctionDirection * extra));
 }
 
 int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError) {
   if (angleError < 0.0f) {
     angleError = -angleError;
   }
-  if (angleError < Config::MinBalanceBoostAngleDegrees ||
-      balanceOutput == 0) {
+  if (angleError < Config::MinBalanceBoostAngleDegrees) {
     return balanceOutput;
   }
 
@@ -203,9 +473,6 @@ void printMode(RobotMode mode) {
   case RobotMode::Balancing:
     Serial.print(F("balancing"));
     break;
-  case RobotMode::Drive:
-    Serial.print(F("drive"));
-    break;
   case RobotMode::Fault:
     Serial.print(F("fault"));
     break;
@@ -226,11 +493,12 @@ void printModeChangeIfNeeded() {
   Serial.print(F("mode-change="));
   printMode(mode);
   Serial.print(F(" upright="));
-  Serial.println(robotState.uprightAngleDegrees());
+  Serial.print(robotState.uprightAngleDegrees());
+  Serial.print(F(" calibRange="));
+  Serial.println(robotState.calibrationRangeDegrees());
 }
 
-void printDebug(const SensorFrame& frame, const ControlCommand& command,
-                const MotorCommand& motorOutput) {
+void printDebug(const SensorFrame& frame) {
   if (!Config::EnableDebugSerial) {
     return;
   }
@@ -242,34 +510,67 @@ void printDebug(const SensorFrame& frame, const ControlCommand& command,
 
   Serial.print(F("mode="));
   printMode(robotState.mode());
+  Serial.print(F(" loopUs="));
+  Serial.print(lastLoopMicros);
   Serial.print(F(" angle="));
   Serial.print(frame.angleDegrees);
   Serial.print(F(" upright="));
   Serial.print(robotState.uprightAngleDegrees());
-  Serial.print(F(" target="));
-  Serial.print(lastTargetAngle);
-  Serial.print(F(" distance="));
-  Serial.print(frame.distanceCm);
-  Serial.print(F(" fwd="));
-  Serial.print(command.forward);
-  Serial.print(F(" turn="));
-  Serial.print(command.turn);
-  Serial.print(F(" balance="));
-  Serial.print(lastBalanceOutput);
-  Serial.print(F(" drift="));
-  Serial.print(lastDriftCorrection);
   Serial.print(F(" trim="));
   Serial.print(currentTrimDegrees);
-  Serial.print(F(" pos="));
-  Serial.print(lastWheelFeedback.averagePositionDegrees);
+  Serial.print(F(" target="));
+  Serial.print(lastTargetAngle);
+  Serial.print(F(" err="));
+  Serial.print(balance.lastErrorDegrees());
+  Serial.print(F(" rate="));
+  Serial.print(balance.lastMeasuredAngleRateDegreesPerSecond());
+  Serial.print(F(" raw="));
+  Serial.print(lastRawBalanceOutput);
+  Serial.print(F(" balance="));
+  Serial.print(lastBalanceOutput);
   Serial.print(F(" speed="));
   Serial.print(lastWheelFeedback.averageSpeedRpm);
+  Serial.print(F(" pos="));
+  Serial.print(lastWheelFeedback.averagePositionDegrees);
+  Serial.print(F(" hold="));
+  Serial.print(lastTravelHoldTargetCorrection);
   Serial.print(F(" left="));
-  Serial.print(motorOutput.left);
+  Serial.print(lastMotorOutput.left);
   Serial.print(F(" right="));
-  Serial.print(motorOutput.right);
+  Serial.print(lastMotorOutput.right);
+  Serial.print(F(" lpwm="));
+  Serial.print(lastWheelFeedback.leftPwm);
+  Serial.print(F(" rpwm="));
+  Serial.print(lastWheelFeedback.rightPwm);
   Serial.print(F(" kp="));
   Serial.print(currentKp);
   Serial.print(F(" kd="));
   Serial.println(currentKd);
+}
+
+void updateStatusLed(unsigned long nowMillis) {
+  switch (robotState.mode()) {
+  case RobotMode::Disarmed:
+    statusLedOn = false;
+    digitalWrite(LED_BUILTIN, LOW);
+    break;
+  case RobotMode::Calibrating:
+    if (nowMillis - lastStatusLedToggleMillis >= 100UL) {
+      statusLedOn = !statusLedOn;
+      lastStatusLedToggleMillis = nowMillis;
+      digitalWrite(LED_BUILTIN, statusLedOn ? HIGH : LOW);
+    }
+    break;
+  case RobotMode::Balancing:
+    statusLedOn = true;
+    digitalWrite(LED_BUILTIN, HIGH);
+    break;
+  case RobotMode::Fault:
+    if (nowMillis - lastStatusLedToggleMillis >= 500UL) {
+      statusLedOn = !statusLedOn;
+      lastStatusLedToggleMillis = nowMillis;
+      digitalWrite(LED_BUILTIN, statusLedOn ? HIGH : LOW);
+    }
+    break;
+  }
 }

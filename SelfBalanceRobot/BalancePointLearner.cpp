@@ -53,9 +53,7 @@ void BalancePointLearner::reset(float storedBalancePointDegrees,
   storedBalancePointDegrees_ = storedBalancePointDegrees;
   resetMillis_ = nowMillis;
   stableStartMillis_ = 0;
-  lastWriteMillis_ = 0;
   hasStableStart_ = false;
-  hasSaved_ = false;
 }
 
 BalanceLearningResult

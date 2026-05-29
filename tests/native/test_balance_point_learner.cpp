@@ -117,6 +117,19 @@ static void test_min_write_interval_prevents_repeated_writes() {
   assert(learner.update(frame(1.0f, 0.0f, 3700), 1.0f, 10, 3700).shouldSave);
 }
 
+static void test_reset_does_not_bypass_min_write_interval() {
+  BalancePointLearner learner = configured();
+
+  assert(!learner.update(frame(1.0f, 0.0f, 1200), 1.0f, 10, 1200).shouldSave);
+  assert(learner.update(frame(1.0f, 0.0f, 1700), 1.0f, 10, 1700).shouldSave);
+
+  learner.reset(0.25f, 1800);
+
+  assert(!learner.update(frame(2.0f, 0.0f, 3000), 2.0f, 10, 3000).shouldSave);
+  assert(!learner.update(frame(2.0f, 0.0f, 3500), 2.0f, 10, 3500).shouldSave);
+  assert(learner.update(frame(2.0f, 0.0f, 3700), 2.0f, 10, 3700).shouldSave);
+}
+
 static void test_stable_window_survives_millis_wraparound() {
   BalancePointLearner learner;
   learner.configure(0, 20, 0, 1.0f, 5.0f, 40, 1.0f);
@@ -174,6 +187,7 @@ int main() {
   test_negative_alpha_clamps_to_stored_point();
   test_alpha_above_one_clamps_to_active_point();
   test_min_write_interval_prevents_repeated_writes();
+  test_reset_does_not_bypass_min_write_interval();
   test_stable_window_survives_millis_wraparound();
   test_min_write_interval_survives_millis_wraparound();
   test_reset_restarts_settle_window_and_uses_new_stored_value();

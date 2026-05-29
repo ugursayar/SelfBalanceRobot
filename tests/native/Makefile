@@ -4,9 +4,9 @@ CXXFLAGS ?= -std=gnu++11 -Wall -Wextra -Werror
 ROOT := ../..
 BUILD_DIR := build
 
-.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser clean
+.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader clean
 
-all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser
+all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -46,6 +46,12 @@ $(BUILD_DIR)/test_command_parser: test_command_parser.cpp $(ROOT)/SelfBalanceRob
 
 test_command_parser: $(BUILD_DIR)/test_command_parser
 	./$(BUILD_DIR)/test_command_parser
+
+$(BUILD_DIR)/test_command_reader: test_command_reader.cpp $(ROOT)/SelfBalanceRobot/CommandReader.cpp $(ROOT)/SelfBalanceRobot/CommandReader.h $(ROOT)/SelfBalanceRobot/CommandParser.cpp $(ROOT)/SelfBalanceRobot/CommandParser.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_command_reader.cpp $(ROOT)/SelfBalanceRobot/CommandReader.cpp $(ROOT)/SelfBalanceRobot/CommandParser.cpp -o $@
+
+test_command_reader: $(BUILD_DIR)/test_command_reader
+	./$(BUILD_DIR)/test_command_reader
 
 $(BUILD_DIR)/test_robot_state: test_robot_state.cpp $(ROOT)/SelfBalanceRobot/RobotState.cpp $(ROOT)/SelfBalanceRobot/RobotState.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(ROOT)/SelfBalanceRobot/config.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_robot_state.cpp $(ROOT)/SelfBalanceRobot/RobotState.cpp -o $@

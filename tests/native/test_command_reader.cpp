@@ -142,6 +142,41 @@ static void test_readers_keep_independent_buffers() {
   assert(command.receivedMillis == 3);
 }
 
+static void test_reset_discards_partial_line() {
+  FakeStream stream("ar");
+  CommandReader reader;
+  reader.begin(stream);
+
+  ParsedCommand command;
+  assert(!reader.readCommand(command, 1));
+
+  reader.reset();
+  stream.append("m\nstop\n");
+
+  assert(reader.readCommand(command, 2));
+  assert(command.action == ParsedCommandAction::Invalid);
+  assert(command.receivedMillis == 2);
+  assert(reader.readCommand(command, 3));
+  assert(command.action == ParsedCommandAction::Stop);
+  assert(command.receivedMillis == 3);
+}
+
+static void test_reset_discards_overflow_state() {
+  FakeStream stream("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  CommandReader reader;
+  reader.begin(stream);
+
+  ParsedCommand command;
+  assert(!reader.readCommand(command, 4));
+
+  reader.reset();
+  stream.append("stop\n");
+
+  assert(reader.readCommand(command, 5));
+  assert(command.action == ParsedCommandAction::Stop);
+  assert(command.receivedMillis == 5);
+}
+
 int main() {
   test_reader_waits_for_newline();
   test_reader_parses_complete_line_with_timestamp();
@@ -151,6 +186,8 @@ int main() {
   test_reader_returns_invalid_for_overflowed_line();
   test_reader_recovers_after_overflow_terminator();
   test_readers_keep_independent_buffers();
+  test_reset_discards_partial_line();
+  test_reset_discards_overflow_state();
 
   std::cout << "test_command_reader PASS\n";
   return EXIT_SUCCESS;

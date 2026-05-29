@@ -7,6 +7,10 @@ CommandReader::CommandReader()
 
 void CommandReader::begin(Stream& stream) {
   stream_ = &stream;
+  reset();
+}
+
+void CommandReader::reset() {
   length_ = 0;
   overflow_ = false;
   buffer_[0] = '\0';

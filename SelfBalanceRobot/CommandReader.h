@@ -11,6 +11,7 @@ public:
   CommandReader();
 
   void begin(Stream& stream);
+  void reset();
   bool readCommand(ParsedCommand& command, unsigned long nowMillis);
 
 private:

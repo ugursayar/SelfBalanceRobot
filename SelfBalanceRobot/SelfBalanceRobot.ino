@@ -29,6 +29,7 @@ unsigned long lastDebugMillis = 0;
 unsigned long lastBluetoothTelemetryMillis = 0;
 unsigned long lastLoopMicros = 0;
 unsigned long motorTestUntilMillis = 0;
+unsigned long manualCommandSuppressedUntilMillis = 0;
 SensorFrame lastFrame;
 ControlCommand command;
 MotorCommand lastMotorOutput;
@@ -56,6 +57,8 @@ bool readCommandsFrom(CommandReader& reader, Stream& reply,
                       unsigned long nowMillis);
 bool applyParsedCommand(const ParsedCommand& parsed, Stream& reply);
 void applyStopCommand(unsigned long nowMillis);
+void resetCommandInputs();
+void drainCommandStream(Stream& stream);
 void clearPersistedBalancePoint(Stream& reply, unsigned long nowMillis);
 void setPersistedBalancePoint(float angleDegrees, Stream& reply,
                               unsigned long nowMillis);
@@ -63,6 +66,8 @@ void configureAutoArmAndLearning();
 void printBalancePointStatus(bool loaded);
 void printBalancePointStatusTo(Stream& out);
 void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm);
+bool motorTestActive(unsigned long nowMillis);
+bool manualCommandsSuppressed(unsigned long nowMillis);
 bool manualArmAttemptIsFresh(unsigned long nowMillis);
 void updateBalancePointLearning(const SensorFrame& frame,
                                 float baseTargetDegrees,
@@ -256,7 +261,7 @@ void loop() {
     lastMotorOutput.left = balanceOutput;
     lastMotorOutput.right = balanceOutput;
     motors.write(lastMotorOutput);
-  } else if (static_cast<long>(motorTestUntilMillis - nowMillis) > 0) {
+  } else if (motorTestActive(nowMillis)) {
     motors.write(lastMotorOutput);
   } else {
     balance.reset();
@@ -282,7 +287,7 @@ void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm) {
   if (modeBeforeAutoArm != RobotMode::Disarmed ||
       robotState.mode() != RobotMode::Disarmed ||
       manualArmAttemptIsFresh(frame.nowMillis) || command.stop ||
-      static_cast<long>(motorTestUntilMillis - frame.nowMillis) > 0) {
+      motorTestActive(frame.nowMillis)) {
     autoArm.reset();
     return;
   }
@@ -303,6 +308,14 @@ void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm) {
       Serial1.println(activeBalancePointDegrees);
     }
   }
+}
+
+bool motorTestActive(unsigned long nowMillis) {
+  return static_cast<long>(motorTestUntilMillis - nowMillis) > 0;
+}
+
+bool manualCommandsSuppressed(unsigned long nowMillis) {
+  return static_cast<long>(manualCommandSuppressedUntilMillis - nowMillis) > 0;
 }
 
 bool manualArmAttemptIsFresh(unsigned long nowMillis) {
@@ -371,12 +384,15 @@ bool applyParsedCommand(const ParsedCommand& parsed, Stream& reply) {
     reply.println(F("error command"));
     return false;
   case ParsedCommandAction::Arm:
-    if (!command.stop) {
-      command.arm = true;
-      command.stop = false;
-      command.receivedMillis = parsed.receivedMillis;
-      reply.println(F("ok arm"));
+    if (command.stop || motorTestActive(parsed.receivedMillis) ||
+        manualCommandsSuppressed(parsed.receivedMillis)) {
+      reply.println(F("ignored arm"));
+      return false;
     }
+    command.arm = true;
+    command.stop = false;
+    command.receivedMillis = parsed.receivedMillis;
+    reply.println(F("ok arm"));
     return false;
   case ParsedCommandAction::Stop:
     applyStopCommand(parsed.receivedMillis);
@@ -458,6 +474,8 @@ void applyStopCommand(unsigned long nowMillis) {
   command.stop = true;
   command.receivedMillis = nowMillis;
   motorTestUntilMillis = 0;
+  manualCommandSuppressedUntilMillis =
+      nowMillis + Config::AutoArmStopCooldownMillis;
   motors.stop();
   lastMotorOutput = MotorCommand();
   lastRawBalanceOutput = 0;
@@ -465,6 +483,24 @@ void applyStopCommand(unsigned long nowMillis) {
   lastTravelHoldTargetCorrection = 0.0f;
   autoArm.suppressUntil(nowMillis, Config::AutoArmStopCooldownMillis);
   balanceSessionUsesPersistedPoint = false;
+  resetCommandInputs();
+}
+
+void resetCommandInputs() {
+  drainCommandStream(Serial);
+  usbCommandReader.reset();
+  if (Config::EnableBluetoothTestControl) {
+    drainCommandStream(Serial1);
+    bluetoothCommandReader.reset();
+  }
+}
+
+void drainCommandStream(Stream& stream) {
+  while (stream.available() > 0) {
+    if (stream.read() < 0) {
+      return;
+    }
+  }
 }
 
 void clearPersistedBalancePoint(Stream& reply, unsigned long nowMillis) {
@@ -479,7 +515,9 @@ void clearPersistedBalancePoint(Stream& reply, unsigned long nowMillis) {
 
 void setPersistedBalancePoint(float angleDegrees, Stream& reply,
                               unsigned long nowMillis) {
-  if (robotState.motorsEnabled() || command.stop) {
+  if (robotState.mode() != RobotMode::Disarmed || command.stop ||
+      motorTestActive(nowMillis) || manualArmAttemptIsFresh(nowMillis) ||
+      manualCommandsSuppressed(nowMillis)) {
     reply.println(F("error bp-busy"));
     return;
   }
@@ -532,10 +570,12 @@ void applyRuntimeTrim(float trimDegrees) {
 }
 
 bool startMotorTest(int16_t output, unsigned long nowMillis) {
-  if (robotState.mode() != RobotMode::Disarmed) {
+  if (robotState.mode() != RobotMode::Disarmed ||
+      manualCommandsSuppressed(nowMillis)) {
     return false;
   }
 
+  command.arm = false;
   lastMotorOutput.left = output;
   lastMotorOutput.right = output;
   motorTestUntilMillis = nowMillis + Config::MotorTestMillis;

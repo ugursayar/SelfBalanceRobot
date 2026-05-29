@@ -21,7 +21,7 @@ Arduino project for a MakeBlock MegaPi two-wheel self-balancing robot with Bluet
 5. Select the MegaPi serial port.
 6. Upload.
 
-Start with the robot held securely. The sketch boots with motors disabled and requires an arm command before calibration and balancing.
+Start with the robot held securely. The sketch boots with motors disabled; balancing can start from a serial `ARM` or from cable-free auto-arm when the gyro is nearly still near the persisted balance point.
 
 ## Bring-Up
 

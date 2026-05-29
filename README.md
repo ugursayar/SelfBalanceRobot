@@ -1,16 +1,14 @@
 # SelfBalanceRobot
 
-Arduino project for a MakeBlock MegaPi two-wheel self-balancing robot with Bluetooth control and ultrasonic obstacle avoidance.
+Arduino project for a MakeBlock MegaPi two-wheel self-balancing robot. The current firmware is balance-only with USB serial commands and cable-free auto-arm from a persisted gyro balance point.
 
 ## Hardware Defaults
 
 - MegaPi programmed as Arduino Mega 2560
 - MegaPi Shield for RJ25
 - Gyro sensor on RJ25 `PORT_6`
-- Ultrasonic sensor on RJ25 `PORT_7`
 - Right motor driver on MegaPi port 1
 - Left motor driver on MegaPi port 2
-- Standard MakeBlock Bluetooth adapter/controller
 
 ## Arduino Setup
 

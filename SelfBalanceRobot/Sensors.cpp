@@ -21,16 +21,10 @@ const SensorFrame& Sensors::update(unsigned long nowMillis) {
   // getGyroY() is the zero-latency rate for BalanceGyroAxis::X.
   frame_.angleRateDegPerSec = static_cast<float>(gyro_.getGyroY());
 
-  // Detect I2C failure: MeGyro::update() returns early without changing gx/gy
-  // when the bus fails, so the angle freezes exactly. Flag stale if unchanged.
-  if (hasLastAngle_ && newAngle == lastAngleDegrees_) {
-    frame_.gyroFresh = false;
-  } else {
-    frame_.angleDegrees = newAngle;
-    lastAngleDegrees_ = newAngle;
-    hasLastAngle_ = true;
-    frame_.gyroFresh = true;
-  }
+  frame_.angleDegrees = newAngle;
+  lastAngleDegrees_ = newAngle;
+  hasLastAngle_ = true;
+  frame_.gyroFresh = true;
 
   return frame_;
 }

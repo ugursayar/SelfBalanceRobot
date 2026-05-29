@@ -82,8 +82,10 @@ static void test_malformed_commands_are_invalid() {
   assert(parse("trim").action == ParsedCommandAction::Invalid);
   assert(parse("trim 1x").action == ParsedCommandAction::Invalid);
   assert(parse("trim inf").action == ParsedCommandAction::Invalid);
+  assert(parse("trim 1e39").action == ParsedCommandAction::Invalid);
   assert(parse("bp set").action == ParsedCommandAction::Invalid);
   assert(parse("bp set 0.5x").action == ParsedCommandAction::Invalid);
+  assert(parse("bp set 1e39").action == ParsedCommandAction::Invalid);
   assert(parse("bp not-a-number").action == ParsedCommandAction::Invalid);
   assert(parse("bp clear 1").action == ParsedCommandAction::Invalid);
   assert(parse("auto maybe").action == ParsedCommandAction::Invalid);

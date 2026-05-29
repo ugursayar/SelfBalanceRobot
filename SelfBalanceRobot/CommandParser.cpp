@@ -1,5 +1,6 @@
 #include "CommandParser.h"
 
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -177,7 +178,8 @@ void CommandParser::normalize(char* line) const {
 bool CommandParser::parseFloatToken(const char* text, float& value) const {
   char* end = nullptr;
   double parsed = strtod(text, &end);
-  if (end == text || *end != '\0' || !isfinite(parsed)) {
+  if (end == text || *end != '\0' || !isfinite(parsed) || parsed > FLT_MAX ||
+      parsed < -FLT_MAX) {
     return false;
   }
   value = static_cast<float>(parsed);

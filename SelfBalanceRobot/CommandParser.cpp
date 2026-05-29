@@ -1,5 +1,6 @@
 #include "CommandParser.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -7,12 +8,13 @@ static bool tokenEquals(const char* token, const char* expected) {
   return token != nullptr && strcmp(token, expected) == 0;
 }
 
-static bool noMoreTokens(char* token) {
-  return strtok(nullptr, " ") == nullptr && token != nullptr;
-}
-
 ParsedCommand CommandParser::parse(char* line) const {
   ParsedCommand command;
+
+  if (line == nullptr) {
+    return invalid();
+  }
+
   normalize(line);
 
   if (line[0] == '\0') {
@@ -66,7 +68,7 @@ ParsedCommand CommandParser::parse(char* line) const {
 
   if (tokenEquals(firstToken, "trim")) {
     char* trim = strtok(nullptr, " ");
-    if (trim == nullptr || !noMoreTokens(trim) || !parseFloatToken(trim, command.first)) {
+    if (trim == nullptr || strtok(nullptr, " ") != nullptr || !parseFloatToken(trim, command.first)) {
       return invalid();
     }
     command.action = ParsedCommandAction::SetTrim;
@@ -175,7 +177,7 @@ void CommandParser::normalize(char* line) const {
 bool CommandParser::parseFloatToken(const char* text, float& value) const {
   char* end = nullptr;
   double parsed = strtod(text, &end);
-  if (end == text || *end != '\0') {
+  if (end == text || *end != '\0' || !isfinite(parsed)) {
     return false;
   }
   value = static_cast<float>(parsed);

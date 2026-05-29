@@ -13,6 +13,11 @@ static ParsedCommand parse(const char* text) {
   return parser.parse(line);
 }
 
+static ParsedCommand parseNull() {
+  CommandParser parser;
+  return parser.parse(nullptr);
+}
+
 static void test_existing_commands_are_case_insensitive() {
   assert(parse("ARM").action == ParsedCommandAction::Arm);
   assert(parse("stop").action == ParsedCommandAction::Stop);
@@ -55,12 +60,30 @@ static void test_runtime_switch_commands_parse() {
   assert(parse("TELEM OFF").action == ParsedCommandAction::TelemetryOff);
 }
 
+static void test_normalization_handles_spaces_tabs_and_trimming() {
+  ParsedCommand pid = parse("  PID\t42   0\t1.25  ");
+  assert(pid.action == ParsedCommandAction::SetPid);
+  assert(pid.first == 42.0f);
+  assert(pid.second == 0.0f);
+  assert(pid.third == 1.25f);
+
+  assert(parse("  BP\tCLEAR  ").action == ParsedCommandAction::BalancePointClear);
+  assert(parse(" \t   \t ").action == ParsedCommandAction::None);
+}
+
 static void test_malformed_commands_are_invalid() {
   assert(parse("").action == ParsedCommandAction::None);
+  assert(parseNull().action == ParsedCommandAction::Invalid);
   assert(parse("pid 42 0").action == ParsedCommandAction::Invalid);
   assert(parse("pid 42 nope 1").action == ParsedCommandAction::Invalid);
+  assert(parse("pid 1x 2 3").action == ParsedCommandAction::Invalid);
+  assert(parse("pid nan 2 3").action == ParsedCommandAction::Invalid);
+  assert(parse("pid 1e9999 2 3").action == ParsedCommandAction::Invalid);
   assert(parse("trim").action == ParsedCommandAction::Invalid);
+  assert(parse("trim 1x").action == ParsedCommandAction::Invalid);
+  assert(parse("trim inf").action == ParsedCommandAction::Invalid);
   assert(parse("bp set").action == ParsedCommandAction::Invalid);
+  assert(parse("bp set 0.5x").action == ParsedCommandAction::Invalid);
   assert(parse("bp not-a-number").action == ParsedCommandAction::Invalid);
   assert(parse("bp clear 1").action == ParsedCommandAction::Invalid);
   assert(parse("auto maybe").action == ParsedCommandAction::Invalid);
@@ -72,6 +95,7 @@ int main() {
   test_pid_and_trim_parse_numeric_arguments();
   test_balance_point_commands_parse();
   test_runtime_switch_commands_parse();
+  test_normalization_handles_spaces_tabs_and_trimming();
   test_malformed_commands_are_invalid();
 
   std::cout << "test_command_parser PASS\n";

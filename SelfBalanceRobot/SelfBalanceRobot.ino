@@ -2,6 +2,7 @@
 #include "BalanceController.h"
 #include "BalancePointLearner.h"
 #include "BalancePointStore.h"
+#include "CommandReader.h"
 #include "EepromByteStorage.h"
 #include "Motors.h"
 #include "RobotState.h"
@@ -20,6 +21,8 @@ BalancePointStore balancePointStore(eepromStorage,
                                     Config::BalancePointEepromAddress);
 AutoArmController autoArm;
 BalancePointLearner balancePointLearner;
+CommandReader usbCommandReader;
+CommandReader bluetoothCommandReader;
 
 unsigned long lastBalanceMicros = 0;
 unsigned long lastDebugMillis = 0;
@@ -43,10 +46,21 @@ unsigned long lastStatusLedToggleMillis = 0;
 unsigned long balancingStartMillis = 0;
 bool balanceSessionUsesPersistedPoint = false;
 float activeBalancePointDegrees = Config::AutoArmDefaultBalancePointDegrees;
+bool runtimeAutoArmEnabled = Config::EnableAutoArm;
+bool balancePointLearningEnabled = true;
+bool bluetoothTelemetryEnabled = false;
 
-void readUsbCommand(unsigned long nowMillis);
+void readCommands(unsigned long nowMillis);
+void readCommandsFrom(CommandReader& reader, Stream& reply,
+                      unsigned long nowMillis);
+void applyParsedCommand(const ParsedCommand& parsed, Stream& reply);
+void applyStopCommand(unsigned long nowMillis);
+void clearPersistedBalancePoint(Stream& reply, unsigned long nowMillis);
+void setPersistedBalancePoint(float angleDegrees, Stream& reply,
+                              unsigned long nowMillis);
 void configureAutoArmAndLearning();
 void printBalancePointStatus(bool loaded);
+void printBalancePointStatusTo(Stream& out);
 void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm);
 bool manualArmAttemptIsFresh(unsigned long nowMillis);
 void updateBalancePointLearning(const SensorFrame& frame,
@@ -62,9 +76,11 @@ float clampTravelHoldTargetCorrection(float correctionDegrees);
 int16_t clampMotorCommand(float command);
 int16_t applyLargeLeanBoost(int16_t balanceOutput, float angleError);
 int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError);
-void printMode(RobotMode mode);
+void printStatus(Stream& out, const SensorFrame& frame);
+void printMode(Stream& out, RobotMode mode);
 void printModeChangeIfNeeded();
 void printDebug(const SensorFrame& frame);
+void printDebugTo(Stream& out, const SensorFrame& frame);
 void updateStatusLed(unsigned long nowMillis);
 
 void setup() {
@@ -72,6 +88,11 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
 
   Serial.begin(115200);
+  usbCommandReader.begin(Serial);
+  if (Config::EnableBluetoothTestControl) {
+    Serial1.begin(Config::BluetoothBaud);
+    bluetoothCommandReader.begin(Serial1);
+  }
 
   sensors.begin();
   motors.begin();
@@ -92,6 +113,9 @@ void setup() {
 
   if (Config::EnableDebugSerial) {
     Serial.println(F("SelfBalanceRobot balance-only ready. Send arm or stop."));
+    if (Config::EnableBluetoothTestControl) {
+      Serial.println(F("bluetooth-test-control serial1=115200"));
+    }
   }
 }
 
@@ -129,6 +153,15 @@ void printBalancePointStatus(bool loaded) {
   Serial.println(balancePointStore.writeCounter());
 }
 
+void printBalancePointStatusTo(Stream& out) {
+  out.print(F("balance-point active="));
+  out.print(balancePointStore.balancePointDegrees());
+  out.print(F(" stored="));
+  out.print(balancePointStore.hasStoredBalancePoint() ? F("yes") : F("no"));
+  out.print(F(" writes="));
+  out.println(balancePointStore.writeCounter());
+}
+
 void loop() {
   const unsigned long nowMicros = micros();
   const unsigned long elapsedMicros = nowMicros - lastBalanceMicros;
@@ -141,7 +174,7 @@ void loop() {
   const float dtSeconds = static_cast<float>(elapsedMicros) * 0.000001f;
   const unsigned long nowMillis = millis();
 
-  readUsbCommand(nowMillis);
+  readCommands(nowMillis);
 
   const SensorFrame& frame = sensors.update(nowMillis);
   lastWheelFeedback = motors.updateFeedback();
@@ -150,8 +183,6 @@ void loop() {
   robotState.update(frame, command);
   if (command.stop) {
     command.stop = false;
-    autoArm.suppressUntil(nowMillis, Config::AutoArmStopCooldownMillis);
-    balanceSessionUsesPersistedPoint = false;
   }
   handleAutoArm(frame, previousMode);
   const RobotMode currentMode = robotState.mode();
@@ -239,7 +270,7 @@ void loop() {
 }
 
 void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm) {
-  if (!Config::EnableAutoArm) {
+  if (!runtimeAutoArmEnabled) {
     return;
   }
 
@@ -262,6 +293,10 @@ void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm) {
       Serial.print(F("auto-arm balancePoint="));
       Serial.println(activeBalancePointDegrees);
     }
+    if (Config::EnableBluetoothTestControl && bluetoothTelemetryEnabled) {
+      Serial1.print(F("auto-arm balancePoint="));
+      Serial1.println(activeBalancePointDegrees);
+    }
   }
 }
 
@@ -274,6 +309,10 @@ void updateBalancePointLearning(const SensorFrame& frame,
                                 float baseTargetDegrees,
                                 int16_t balanceOutput,
                                 unsigned long nowMillis) {
+  if (!balancePointLearningEnabled) {
+    return;
+  }
+
   const BalanceLearningResult result =
       balancePointLearner.update(frame, baseTargetDegrees, balanceOutput,
                                  nowMillis);
@@ -293,54 +332,146 @@ void updateBalancePointLearning(const SensorFrame& frame,
     Serial.print(F(" writes="));
     Serial.println(balancePointStore.writeCounter());
   }
+  if (Config::EnableBluetoothTestControl && bluetoothTelemetryEnabled) {
+    Serial1.print(F("balance-point saved="));
+    Serial1.print(activeBalancePointDegrees);
+    Serial1.print(F(" writes="));
+    Serial1.println(balancePointStore.writeCounter());
+  }
 }
 
-void readUsbCommand(unsigned long nowMillis) {
-  static char buffer[32];
-  static uint8_t length = 0;
-
-  while (Serial.available() > 0) {
-    const char incoming = static_cast<char>(Serial.read());
-    if (incoming == '\r' || incoming == '\n') {
-      buffer[length] = '\0';
-      if (length > 0) {
-        if (strcmp(buffer, "arm") == 0) {
-          command.arm = true;
-          command.stop = false;
-          command.receivedMillis = nowMillis;
-        } else if (strcmp(buffer, "stop") == 0) {
-          command.arm = false;
-          command.stop = true;
-          command.receivedMillis = nowMillis;
-          motorTestUntilMillis = 0;
-          autoArm.suppressUntil(nowMillis, Config::AutoArmStopCooldownMillis);
-          balanceSessionUsesPersistedPoint = false;
-        } else if (strcmp(buffer, "m+") == 0) {
-          startMotorTest(Config::MotorTestCommand, nowMillis);
-        } else if (strcmp(buffer, "m-") == 0) {
-          startMotorTest(-Config::MotorTestCommand, nowMillis);
-        } else if (strncmp(buffer, "trim ", 5) == 0) {
-          applyRuntimeTrim(atof(buffer + 5));
-        } else if (strncmp(buffer, "pid ", 4) == 0) {
-          char* p = buffer + 4;
-          const float kp = atof(p);
-          char* sp1 = strchr(p, ' ');
-          if (sp1 != nullptr) {
-            const float ki = atof(++sp1);
-            char* sp2 = strchr(sp1, ' ');
-            if (sp2 != nullptr) {
-              applyRuntimePid(kp, ki, atof(++sp2));
-            }
-          }
-        }
-      }
-      length = 0;
-    } else if (length < sizeof(buffer) - 1) {
-      buffer[length++] = incoming >= 'A' && incoming <= 'Z'
-                             ? static_cast<char>(incoming + ('a' - 'A'))
-                             : incoming;
-    }
+void readCommands(unsigned long nowMillis) {
+  readCommandsFrom(usbCommandReader, Serial, nowMillis);
+  if (Config::EnableBluetoothTestControl) {
+    readCommandsFrom(bluetoothCommandReader, Serial1, nowMillis);
   }
+}
+
+void readCommandsFrom(CommandReader& reader, Stream& reply,
+                      unsigned long nowMillis) {
+  ParsedCommand parsed;
+  while (reader.readCommand(parsed, nowMillis)) {
+    applyParsedCommand(parsed, reply);
+  }
+}
+
+void applyParsedCommand(const ParsedCommand& parsed, Stream& reply) {
+  switch (parsed.action) {
+  case ParsedCommandAction::None:
+    return;
+  case ParsedCommandAction::Invalid:
+    reply.println(F("error command"));
+    return;
+  case ParsedCommandAction::Arm:
+    if (!command.stop) {
+      command.arm = true;
+      command.stop = false;
+      command.receivedMillis = parsed.receivedMillis;
+      reply.println(F("ok arm"));
+    }
+    return;
+  case ParsedCommandAction::Stop:
+    applyStopCommand(parsed.receivedMillis);
+    reply.println(F("ok stop"));
+    return;
+  case ParsedCommandAction::MotorBackward:
+    startMotorTest(Config::MotorTestCommand, parsed.receivedMillis);
+    reply.println(F("ok m+"));
+    return;
+  case ParsedCommandAction::MotorForward:
+    startMotorTest(-Config::MotorTestCommand, parsed.receivedMillis);
+    reply.println(F("ok m-"));
+    return;
+  case ParsedCommandAction::SetTrim:
+    applyRuntimeTrim(parsed.first);
+    reply.print(F("ok trim="));
+    reply.println(currentTrimDegrees);
+    return;
+  case ParsedCommandAction::SetPid:
+    applyRuntimePid(parsed.first, parsed.second, parsed.third);
+    reply.print(F("ok pid kp="));
+    reply.print(currentKp);
+    reply.print(F(" ki="));
+    reply.print(currentKi);
+    reply.print(F(" kd="));
+    reply.println(currentKd);
+    return;
+  case ParsedCommandAction::BalancePointQuery:
+    printBalancePointStatusTo(reply);
+    return;
+  case ParsedCommandAction::BalancePointSet:
+    setPersistedBalancePoint(parsed.first, reply, parsed.receivedMillis);
+    return;
+  case ParsedCommandAction::BalancePointClear:
+    clearPersistedBalancePoint(reply, parsed.receivedMillis);
+    return;
+  case ParsedCommandAction::AutoOn:
+    runtimeAutoArmEnabled = Config::EnableAutoArm;
+    reply.println(runtimeAutoArmEnabled ? F("ok auto=on")
+                                        : F("ok auto=disabled-by-config"));
+    return;
+  case ParsedCommandAction::AutoOff:
+    runtimeAutoArmEnabled = false;
+    autoArm.suppressUntil(parsed.receivedMillis,
+                          Config::AutoArmStopCooldownMillis);
+    reply.println(F("ok auto=off"));
+    return;
+  case ParsedCommandAction::LearnOn:
+    balancePointLearningEnabled = true;
+    balancePointLearner.reset(balancePointStore.balancePointDegrees(),
+                              parsed.receivedMillis);
+    reply.println(F("ok learn=on"));
+    return;
+  case ParsedCommandAction::LearnOff:
+    balancePointLearningEnabled = false;
+    reply.println(F("ok learn=off"));
+    return;
+  case ParsedCommandAction::Status:
+    printStatus(reply, lastFrame);
+    return;
+  case ParsedCommandAction::TelemetryOn:
+    bluetoothTelemetryEnabled = true;
+    reply.println(F("ok telem=on"));
+    return;
+  case ParsedCommandAction::TelemetryOff:
+    bluetoothTelemetryEnabled = false;
+    reply.println(F("ok telem=off"));
+    return;
+  }
+}
+
+void applyStopCommand(unsigned long nowMillis) {
+  command.arm = false;
+  command.stop = true;
+  command.receivedMillis = nowMillis;
+  motorTestUntilMillis = 0;
+  autoArm.suppressUntil(nowMillis, Config::AutoArmStopCooldownMillis);
+  balanceSessionUsesPersistedPoint = false;
+}
+
+void clearPersistedBalancePoint(Stream& reply, unsigned long nowMillis) {
+  applyStopCommand(nowMillis);
+  balancePointStore.clearBalancePoint(Config::AutoArmDefaultBalancePointDegrees);
+  activeBalancePointDegrees = balancePointStore.balancePointDegrees();
+  autoArm.setTargetBalancePoint(activeBalancePointDegrees);
+  balancePointLearner.reset(activeBalancePointDegrees, nowMillis);
+  reply.print(F("ok bp-clear default="));
+  reply.println(activeBalancePointDegrees);
+}
+
+void setPersistedBalancePoint(float angleDegrees, Stream& reply,
+                              unsigned long nowMillis) {
+  if (!balancePointStore.saveBalancePoint(angleDegrees)) {
+    reply.println(F("error bp-range"));
+    return;
+  }
+  activeBalancePointDegrees = balancePointStore.balancePointDegrees();
+  autoArm.setTargetBalancePoint(activeBalancePointDegrees);
+  balancePointLearner.reset(activeBalancePointDegrees, nowMillis);
+  reply.print(F("ok bp="));
+  reply.print(activeBalancePointDegrees);
+  reply.print(F(" writes="));
+  reply.println(balancePointStore.writeCounter());
 }
 
 void applyRuntimePid(float kp, float ki, float kd) {
@@ -462,19 +593,56 @@ int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError) {
   return balanceOutput;
 }
 
-void printMode(RobotMode mode) {
+void printStatus(Stream& out, const SensorFrame& frame) {
+  out.print(F("status mode="));
+  printMode(out, robotState.mode());
+  out.print(F(" angle="));
+  out.print(frame.angleDegrees);
+  out.print(F(" target="));
+  out.print(lastTargetAngle);
+  out.print(F(" trim="));
+  out.print(currentTrimDegrees);
+  out.print(F(" bp="));
+  out.print(activeBalancePointDegrees);
+  out.print(F(" stored="));
+  out.print(balancePointStore.hasStoredBalancePoint() ? F("yes") : F("no"));
+  out.print(F(" rate="));
+  out.print(balance.lastMeasuredAngleRateDegreesPerSecond());
+  out.print(F(" raw="));
+  out.print(lastRawBalanceOutput);
+  out.print(F(" balance="));
+  out.print(lastBalanceOutput);
+  out.print(F(" speed="));
+  out.print(lastWheelFeedback.averageSpeedRpm);
+  out.print(F(" pos="));
+  out.print(lastWheelFeedback.averagePositionDegrees);
+  out.print(F(" hold="));
+  out.print(lastTravelHoldTargetCorrection);
+  out.print(F(" left="));
+  out.print(lastMotorOutput.left);
+  out.print(F(" right="));
+  out.print(lastMotorOutput.right);
+  out.print(F(" kp="));
+  out.print(currentKp);
+  out.print(F(" ki="));
+  out.print(currentKi);
+  out.print(F(" kd="));
+  out.println(currentKd);
+}
+
+void printMode(Stream& out, RobotMode mode) {
   switch (mode) {
   case RobotMode::Disarmed:
-    Serial.print(F("disarmed"));
+    out.print(F("disarmed"));
     break;
   case RobotMode::Calibrating:
-    Serial.print(F("calibrating"));
+    out.print(F("calibrating"));
     break;
   case RobotMode::Balancing:
-    Serial.print(F("balancing"));
+    out.print(F("balancing"));
     break;
   case RobotMode::Fault:
-    Serial.print(F("fault"));
+    out.print(F("fault"));
     break;
   }
 }
@@ -491,7 +659,7 @@ void printModeChangeIfNeeded() {
   }
 
   Serial.print(F("mode-change="));
-  printMode(mode);
+  printMode(Serial, mode);
   Serial.print(F(" upright="));
   Serial.print(robotState.uprightAngleDegrees());
   Serial.print(F(" calibRange="));
@@ -499,7 +667,7 @@ void printModeChangeIfNeeded() {
 }
 
 void printDebug(const SensorFrame& frame) {
-  if (!Config::EnableDebugSerial) {
+  if (!Config::EnableDebugSerial && !bluetoothTelemetryEnabled) {
     return;
   }
 
@@ -508,44 +676,53 @@ void printDebug(const SensorFrame& frame) {
   }
   lastDebugMillis = frame.nowMillis;
 
-  Serial.print(F("mode="));
-  printMode(robotState.mode());
-  Serial.print(F(" loopUs="));
-  Serial.print(lastLoopMicros);
-  Serial.print(F(" angle="));
-  Serial.print(frame.angleDegrees);
-  Serial.print(F(" upright="));
-  Serial.print(robotState.uprightAngleDegrees());
-  Serial.print(F(" trim="));
-  Serial.print(currentTrimDegrees);
-  Serial.print(F(" target="));
-  Serial.print(lastTargetAngle);
-  Serial.print(F(" err="));
-  Serial.print(balance.lastErrorDegrees());
-  Serial.print(F(" rate="));
-  Serial.print(balance.lastMeasuredAngleRateDegreesPerSecond());
-  Serial.print(F(" raw="));
-  Serial.print(lastRawBalanceOutput);
-  Serial.print(F(" balance="));
-  Serial.print(lastBalanceOutput);
-  Serial.print(F(" speed="));
-  Serial.print(lastWheelFeedback.averageSpeedRpm);
-  Serial.print(F(" pos="));
-  Serial.print(lastWheelFeedback.averagePositionDegrees);
-  Serial.print(F(" hold="));
-  Serial.print(lastTravelHoldTargetCorrection);
-  Serial.print(F(" left="));
-  Serial.print(lastMotorOutput.left);
-  Serial.print(F(" right="));
-  Serial.print(lastMotorOutput.right);
-  Serial.print(F(" lpwm="));
-  Serial.print(lastWheelFeedback.leftPwm);
-  Serial.print(F(" rpwm="));
-  Serial.print(lastWheelFeedback.rightPwm);
-  Serial.print(F(" kp="));
-  Serial.print(currentKp);
-  Serial.print(F(" kd="));
-  Serial.println(currentKd);
+  if (Config::EnableDebugSerial) {
+    printDebugTo(Serial, frame);
+  }
+  if (Config::EnableBluetoothTestControl && bluetoothTelemetryEnabled) {
+    printDebugTo(Serial1, frame);
+  }
+}
+
+void printDebugTo(Stream& out, const SensorFrame& frame) {
+  out.print(F("mode="));
+  printMode(out, robotState.mode());
+  out.print(F(" loopUs="));
+  out.print(lastLoopMicros);
+  out.print(F(" angle="));
+  out.print(frame.angleDegrees);
+  out.print(F(" upright="));
+  out.print(robotState.uprightAngleDegrees());
+  out.print(F(" trim="));
+  out.print(currentTrimDegrees);
+  out.print(F(" target="));
+  out.print(lastTargetAngle);
+  out.print(F(" err="));
+  out.print(balance.lastErrorDegrees());
+  out.print(F(" rate="));
+  out.print(balance.lastMeasuredAngleRateDegreesPerSecond());
+  out.print(F(" raw="));
+  out.print(lastRawBalanceOutput);
+  out.print(F(" balance="));
+  out.print(lastBalanceOutput);
+  out.print(F(" speed="));
+  out.print(lastWheelFeedback.averageSpeedRpm);
+  out.print(F(" pos="));
+  out.print(lastWheelFeedback.averagePositionDegrees);
+  out.print(F(" hold="));
+  out.print(lastTravelHoldTargetCorrection);
+  out.print(F(" left="));
+  out.print(lastMotorOutput.left);
+  out.print(F(" right="));
+  out.print(lastMotorOutput.right);
+  out.print(F(" lpwm="));
+  out.print(lastWheelFeedback.leftPwm);
+  out.print(F(" rpwm="));
+  out.print(lastWheelFeedback.rightPwm);
+  out.print(F(" kp="));
+  out.print(currentKp);
+  out.print(F(" kd="));
+  out.println(currentKd);
 }
 
 void updateStatusLed(unsigned long nowMillis) {

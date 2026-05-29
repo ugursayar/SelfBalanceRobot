@@ -72,6 +72,8 @@ namespace Config {
   constexpr unsigned long MotorTestMillis = 700UL;
 
   constexpr bool EnableDebugSerial = true;
+  constexpr bool EnableBluetoothTestControl = true;
+  constexpr unsigned long BluetoothBaud = 115200UL;
   constexpr unsigned long DebugPeriodMillis = 50UL;
 
   // Ramp the balance target from uprightAngle down to (upright+trim) over this

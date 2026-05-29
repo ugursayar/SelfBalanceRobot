@@ -50,7 +50,8 @@ New test commands:
 | Command | Behavior |
 |---|---|
 | `BP?` | Print active balance point, stored/default status, and EEPROM write count. |
-| `BP <degrees>` | Save a persisted absolute balance point, update auto-arm target, and acknowledge success or range rejection. |
+| `BP SET <degrees>` | Save a persisted absolute balance point during tests, update auto-arm target, and acknowledge success or range rejection. |
+| `BP <degrees>` | Short alias for `BP SET <degrees>`. |
 | `BP CLEAR` | Invalidate stored balance-point records, fall back to default balance point, stop motors, and suppress auto-arm briefly. |
 | `AUTO ON` / `AUTO OFF` | Temporarily enable or disable auto-arm until reset. |
 | `LEARN ON` / `LEARN OFF` | Temporarily enable or disable balance-point learning until reset. |
@@ -67,6 +68,8 @@ Balance-point learning starts enabled by default to preserve current behavior, b
 
 Motor test commands remain disarmed-only. PID, trim, and balance-point set commands are clamped by existing configuration ranges before taking effect.
 
+The manual balance-point set command writes the same persisted absolute angle that auto-arm later uses. It is intended for controlled cable-free tests: find a candidate value, send `BP SET <degrees>`, then run auto-arm against that exact target.
+
 ## Telemetry
 
 Command acknowledgements are written to the same port that issued the command. Important autonomous events, such as auto-arm and balance-point saves, continue to print to USB debug and should also print to Bluetooth when Bluetooth telemetry is enabled.
@@ -80,8 +83,8 @@ Command acknowledgements are written to the same port that issued the command. I
 3. Send `STOP`, `AUTO OFF`, `LEARN OFF`, and `BP CLEAR`.
 4. Send `STATUS` and confirm `angle` changes when the robot tips forward/backward.
 5. Use `ARM` with the robot held still, release only after the controller settles, and record `angle`, `target`, `balance`, `left`, `right`, and `rate`.
-6. If the robot consistently falls forward, adjust the target using `TRIM` for manual sessions or `BP <degrees>` for auto-arm sessions, one small step at a time.
-7. Once a cable-free target holds for short tests, send `BP <degrees>` to persist it.
+6. If the robot consistently falls forward, adjust the target using `TRIM` for manual sessions or `BP SET <degrees>` for auto-arm sessions, one small step at a time.
+7. Once a cable-free target holds for short tests, send `BP SET <degrees>` to persist it.
 8. Re-enable `AUTO ON` only after the persisted target is verified.
 9. Re-enable `LEARN ON` only after the robot can balance without immediate divergence.
 
@@ -90,7 +93,7 @@ Command acknowledgements are written to the same port that issued the command. I
 Native tests should cover:
 
 - Existing commands still parse case-insensitively.
-- PID, trim, and balance-point numeric commands parse only with required arguments.
+- PID, trim, `BP SET <degrees>`, and `BP <degrees>` parse only with required arguments.
 - Balance-point set rejects out-of-range values through the existing store range.
 - `BP CLEAR`, `AUTO`, `LEARN`, `STATUS`, and `TELEM` commands parse correctly.
 - Each `CommandReader` instance maintains its own partial line buffer so USB and Bluetooth input cannot corrupt each other.

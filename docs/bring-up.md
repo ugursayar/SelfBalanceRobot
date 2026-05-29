@@ -24,7 +24,7 @@ Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `S
 | `TELEM ON` / `TELEM OFF` | Enable or disable periodic shorter Bluetooth-only telemetry at a slower period than USB debug output. |
 
 `PID` and `TRIM` take effect on the next balance loop tick and reply on the command channel.
-`BP SET` is rejected while motors are enabled; send it only while stopped/disarmed.
+`BP SET` is accepted only while fully disarmed: no motor test, no active calibration/balancing/fault, no fresh `ARM`, and no `STOP`/`BP CLEAR` cooldown.
 Do not copy a `TRIM` offset into `BP SET`; persist the absolute target/balance-point angle reported by diagnostics.
 
 Auto-arm is enabled by default. If EEPROM contains a valid learned balance point, or if the configured default balance point is close enough for the current build, the robot can enter balancing without a serial `ARM` when it is held nearly still near that angle. `STOP` still disarms immediately and starts a short auto-arm cooldown.

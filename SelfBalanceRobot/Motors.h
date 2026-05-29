@@ -16,15 +16,13 @@ public:
   void resetTravel();
   void write(const MotorCommand& command);
   void stop();
+  void refreshPwmFeedback();
 
 private:
   MeEncoderOnBoard rightMotor_;
   MeEncoderOnBoard leftMotor_;
   WheelFeedback feedback_;
 
-  int16_t applyInversion(int16_t value, bool invert) const;
-  long applyPositionInversion(long value, bool invert) const;
-  float applySpeedInversion(float value, bool invert) const;
   void handleRightPulse();
   void handleLeftPulse();
 

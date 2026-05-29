@@ -2,7 +2,6 @@
 #define SENSORS_H
 
 #include <MeGyro.h>
-#include <MeUltrasonicSensor.h>
 
 #include "RobotTypes.h"
 #include "config.h"
@@ -19,10 +18,9 @@ private:
   float readBalanceAngle() const;
 
   MeGyro gyro_;
-  MeUltrasonicSensor ultrasonic_;
   SensorFrame frame_;
-  unsigned long lastUltrasonicMillis_;
-  bool hasUltrasonicSample_;
+  float lastAngleDegrees_;
+  bool hasLastAngle_;
 };
 
 #endif

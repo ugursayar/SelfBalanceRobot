@@ -1,9 +1,6 @@
 #include "BalanceController.h"
 
 namespace {
-constexpr float kIntegralMin = -50.0f;
-constexpr float kIntegralMax = 50.0f;
-
 float clampFloat(float value, float minimum, float maximum) {
   if (value < minimum) {
     return minimum;
@@ -13,16 +10,17 @@ float clampFloat(float value, float minimum, float maximum) {
   }
   return value;
 }
-
-float absoluteFloat(float value) {
-  return value < 0.0f ? -value : value;
-}
 } // namespace
 
 BalanceController::BalanceController()
-    : kp_(0.0f), ki_(0.0f), kd_(0.0f), smallErrorDegrees_(0.0f),
-      smallErrorGainScale_(1.0f), targetAngleDegrees_(0.0f), integral_(0.0f),
-      previousError_(0.0f), outputLimit_(255), hasPreviousError_(false) {}
+    : kp_(0.0f), ki_(0.0f), kd_(0.0f),
+      integralLimitDegreesSeconds_(0.0f), targetAngleDegrees_(0.0f),
+      integral_(0.0f), previousMeasuredAngleDegrees_(0.0f),
+      filteredMeasuredAngleRateDegreesPerSecond_(0.0f),
+      lastErrorDegrees_(0.0f),
+      lastMeasuredAngleRateDegreesPerSecond_(0.0f), rateFilterAlpha_(0.0f),
+      outputLimit_(255),
+      hasPreviousMeasuredAngle_(false) {}
 
 void BalanceController::setTunings(float kp, float ki, float kd) {
   kp_ = kp;
@@ -30,12 +28,14 @@ void BalanceController::setTunings(float kp, float ki, float kd) {
   kd_ = kd;
 }
 
-void BalanceController::setGainSchedule(float smallErrorDegrees,
-                                        float smallErrorGainScale) {
-  smallErrorDegrees_ = smallErrorDegrees < 0.0f ? -smallErrorDegrees
-                                                : smallErrorDegrees;
-  smallErrorGainScale_ =
-      clampFloat(smallErrorGainScale, 0.0f, 1.0f);
+void BalanceController::setIntegralLimit(float integralLimitDegreesSeconds) {
+  integralLimitDegreesSeconds_ =
+      integralLimitDegreesSeconds < 0.0f ? -integralLimitDegreesSeconds
+                                         : integralLimitDegreesSeconds;
+}
+
+void BalanceController::setRateFilter(float filterAlpha) {
+  rateFilterAlpha_ = clampFloat(filterAlpha, 0.0f, 0.95f);
 }
 
 void BalanceController::setTargetAngle(float targetAngleDegrees) {
@@ -52,8 +52,11 @@ void BalanceController::setOutputLimit(int16_t outputLimit) {
 
 void BalanceController::reset() {
   integral_ = 0.0f;
-  previousError_ = 0.0f;
-  hasPreviousError_ = false;
+  previousMeasuredAngleDegrees_ = 0.0f;
+  filteredMeasuredAngleRateDegreesPerSecond_ = 0.0f;
+  lastErrorDegrees_ = 0.0f;
+  lastMeasuredAngleRateDegreesPerSecond_ = 0.0f;
+  hasPreviousMeasuredAngle_ = false;
 }
 
 int16_t BalanceController::update(float measuredAngleDegrees,
@@ -63,33 +66,80 @@ int16_t BalanceController::update(float measuredAngleDegrees,
   }
 
   const float error = targetAngleDegrees_ - measuredAngleDegrees;
+  lastErrorDegrees_ = error;
 
-  integral_ += error * dtSeconds;
-  integral_ = clampFloat(integral_, kIntegralMin, kIntegralMax);
-
-  float derivative = 0.0f;
-  if (hasPreviousError_) {
-    derivative = (error - previousError_) / dtSeconds;
+  if (ki_ != 0.0f) {
+    integral_ += error * dtSeconds;
+    if (integralLimitDegreesSeconds_ > 0.0f) {
+      integral_ = clampFloat(integral_, -integralLimitDegreesSeconds_,
+                             integralLimitDegreesSeconds_);
+    }
   }
 
-  previousError_ = error;
-  hasPreviousError_ = true;
-
-  float proportionalGain = kp_;
-  const float absoluteError = absoluteFloat(error);
-  if (smallErrorDegrees_ > 0.0f && absoluteError <= smallErrorDegrees_) {
-    const float ramp =
-        clampFloat(absoluteError / smallErrorDegrees_, 0.0f, 1.0f);
-    const float gainScale =
-        smallErrorGainScale_ + ((1.0f - smallErrorGainScale_) * ramp);
-    proportionalGain *= gainScale;
+  float measuredAngleRate = 0.0f;
+  if (hasPreviousMeasuredAngle_) {
+    measuredAngleRate =
+        (measuredAngleDegrees - previousMeasuredAngleDegrees_) / dtSeconds;
   }
+  filteredMeasuredAngleRateDegreesPerSecond_ =
+      (rateFilterAlpha_ * filteredMeasuredAngleRateDegreesPerSecond_) +
+      ((1.0f - rateFilterAlpha_) * measuredAngleRate);
+  lastMeasuredAngleRateDegreesPerSecond_ =
+      filteredMeasuredAngleRateDegreesPerSecond_;
 
-  const float rawOutput = (proportionalGain * error) + (ki_ * integral_) +
-                          (kd_ * derivative);
+  previousMeasuredAngleDegrees_ = measuredAngleDegrees;
+  hasPreviousMeasuredAngle_ = true;
+
+  const float rawOutput =
+      -((kp_ * error) + (ki_ * integral_)) +
+      (kd_ * filteredMeasuredAngleRateDegreesPerSecond_);
   const float limitedOutput =
       clampFloat(rawOutput, -static_cast<float>(outputLimit_),
                  static_cast<float>(outputLimit_));
 
   return static_cast<int16_t>(limitedOutput);
+}
+
+int16_t BalanceController::update(float measuredAngleDegrees,
+                                  float measuredAngleRateDegPerSec,
+                                  float dtSeconds) {
+  if (dtSeconds <= 0.0f) {
+    return 0;
+  }
+
+  const float error = targetAngleDegrees_ - measuredAngleDegrees;
+  lastErrorDegrees_ = error;
+
+  if (ki_ != 0.0f) {
+    integral_ += error * dtSeconds;
+    if (integralLimitDegreesSeconds_ > 0.0f) {
+      integral_ = clampFloat(integral_, -integralLimitDegreesSeconds_,
+                             integralLimitDegreesSeconds_);
+    }
+  }
+
+  // Use provided raw gyro rate directly — no finite-difference delay.
+  filteredMeasuredAngleRateDegreesPerSecond_ =
+      (rateFilterAlpha_ * filteredMeasuredAngleRateDegreesPerSecond_) +
+      ((1.0f - rateFilterAlpha_) * measuredAngleRateDegPerSec);
+  lastMeasuredAngleRateDegreesPerSecond_ =
+      filteredMeasuredAngleRateDegreesPerSecond_;
+
+  previousMeasuredAngleDegrees_ = measuredAngleDegrees;
+  hasPreviousMeasuredAngle_ = true;
+
+  const float rawOutput =
+      -((kp_ * error) + (ki_ * integral_)) +
+      (kd_ * filteredMeasuredAngleRateDegreesPerSecond_);
+  const float limitedOutput =
+      clampFloat(rawOutput, -static_cast<float>(outputLimit_),
+                 static_cast<float>(outputLimit_));
+
+  return static_cast<int16_t>(limitedOutput);
+}
+
+float BalanceController::lastErrorDegrees() const { return lastErrorDegrees_; }
+
+float BalanceController::lastMeasuredAngleRateDegreesPerSecond() const {
+  return lastMeasuredAngleRateDegreesPerSecond_;
 }

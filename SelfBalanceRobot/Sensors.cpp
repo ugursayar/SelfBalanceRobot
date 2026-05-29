@@ -1,31 +1,35 @@
 #include "Sensors.h"
 
 Sensors::Sensors()
-    : gyro_(Config::GyroPort), ultrasonic_(Config::UltrasonicPort), frame_(),
-      lastUltrasonicMillis_(0), hasUltrasonicSample_(false) {}
+    : gyro_(Config::GyroPort), frame_(), lastAngleDegrees_(0.0f),
+      hasLastAngle_(false) {}
 
 void Sensors::begin() {
   gyro_.begin();
   frame_ = SensorFrame();
-  lastUltrasonicMillis_ = 0;
-  hasUltrasonicSample_ = false;
+  lastAngleDegrees_ = 0.0f;
+  hasLastAngle_ = false;
 }
 
 const SensorFrame& Sensors::update(unsigned long nowMillis) {
   frame_.nowMillis = nowMillis;
   frame_.gyroFresh = false;
-  frame_.ultrasonicFresh = hasUltrasonicSample_;
 
   gyro_.update();
-  frame_.angleDegrees = readBalanceAngle();
-  frame_.gyroFresh = true;
+  const float newAngle = readBalanceAngle();
+  // MeGyro integrates gyrY into getAngleX (axis swap in update()), so
+  // getGyroY() is the zero-latency rate for BalanceGyroAxis::X.
+  frame_.angleRateDegPerSec = static_cast<float>(gyro_.getGyroY());
 
-  if (!hasUltrasonicSample_ ||
-      nowMillis - lastUltrasonicMillis_ >= Config::UltrasonicPeriodMillis) {
-    frame_.distanceCm = ultrasonic_.distanceCm();
-    lastUltrasonicMillis_ = nowMillis;
-    hasUltrasonicSample_ = true;
-    frame_.ultrasonicFresh = true;
+  // Detect I2C failure: MeGyro::update() returns early without changing gx/gy
+  // when the bus fails, so the angle freezes exactly. Flag stale if unchanged.
+  if (hasLastAngle_ && newAngle == lastAngleDegrees_) {
+    frame_.gyroFresh = false;
+  } else {
+    frame_.angleDegrees = newAngle;
+    lastAngleDegrees_ = newAngle;
+    hasLastAngle_ = true;
+    frame_.gyroFresh = true;
   }
 
   return frame_;

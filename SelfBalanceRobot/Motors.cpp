@@ -2,6 +2,15 @@
 
 namespace {
 Motors* activeMotors = nullptr;
+
+void configureMegaPiEncoderPwmTimers() {
+  // Matches the MakeBlock Me_Megapi_encoder_direct example for slots 1 and 2.
+  TCCR1A = _BV(WGM10);
+  TCCR1B = _BV(CS11) | _BV(WGM12);
+
+  TCCR2A = _BV(WGM21) | _BV(WGM20);
+  TCCR2B = _BV(CS21);
+}
 }
 
 Motors::Motors()
@@ -9,9 +18,11 @@ Motors::Motors()
       leftMotor_(Config::LeftEncoderSlot), feedback_() {}
 
 void Motors::begin() {
+  configureMegaPiEncoderPwmTimers();
   activeMotors = this;
-  attachInterrupt(rightMotor_.getIntNum(), rightEncoderIsr, RISING);
-  attachInterrupt(leftMotor_.getIntNum(), leftEncoderIsr, RISING);
+  // CHANGE captures both edges for 2× quadrature resolution.
+  attachInterrupt(rightMotor_.getIntNum(), rightEncoderIsr, CHANGE);
+  attachInterrupt(leftMotor_.getIntNum(), leftEncoderIsr, CHANGE);
   resetTravel();
   stop();
 }
@@ -22,20 +33,18 @@ WheelFeedback Motors::updateFeedback() {
   rightMotor_.updateCurPos();
   leftMotor_.updateCurPos();
 
-  feedback_.rightPositionDegrees =
-      applyPositionInversion(rightMotor_.getCurPos(), Config::InvertRightMotor);
-  feedback_.leftPositionDegrees =
-      applyPositionInversion(leftMotor_.getCurPos(), Config::InvertLeftMotor);
-  feedback_.rightSpeedRpm =
-      applySpeedInversion(rightMotor_.getCurrentSpeed(), Config::InvertRightMotor);
-  feedback_.leftSpeedRpm =
-      applySpeedInversion(leftMotor_.getCurrentSpeed(), Config::InvertLeftMotor);
+  feedback_.rightPositionDegrees = -rightMotor_.getCurPos();
+  feedback_.leftPositionDegrees = leftMotor_.getCurPos();
+  feedback_.rightSpeedRpm = -rightMotor_.getCurrentSpeed();
+  feedback_.leftSpeedRpm = leftMotor_.getCurrentSpeed();
   feedback_.averagePositionDegrees =
       (static_cast<float>(feedback_.rightPositionDegrees) +
        static_cast<float>(feedback_.leftPositionDegrees)) *
       0.5f;
   feedback_.averageSpeedRpm =
       (feedback_.rightSpeedRpm + feedback_.leftSpeedRpm) * 0.5f;
+  feedback_.rightPwm = -rightMotor_.getCurPwm();
+  feedback_.leftPwm = leftMotor_.getCurPwm();
   return feedback_;
 }
 
@@ -48,29 +57,30 @@ void Motors::resetTravel() {
 }
 
 void Motors::write(const MotorCommand& command) {
-  rightMotor_.setMotorPwm(applyInversion(command.right, Config::InvertRightMotor));
-  leftMotor_.setMotorPwm(applyInversion(command.left, Config::InvertLeftMotor));
+  // Right motor is mirrored on this build; keep logical commands normalized.
+  rightMotor_.setMotorPwm(static_cast<int16_t>(-command.right));
+  leftMotor_.setMotorPwm(command.left);
+  refreshPwmFeedback();
 }
 
 void Motors::stop() {
   rightMotor_.setMotorPwm(0);
   leftMotor_.setMotorPwm(0);
+  refreshPwmFeedback();
 }
 
-int16_t Motors::applyInversion(int16_t value, bool invert) const {
-  return invert ? static_cast<int16_t>(-value) : value;
-}
-
-long Motors::applyPositionInversion(long value, bool invert) const {
-  return invert ? -value : value;
-}
-
-float Motors::applySpeedInversion(float value, bool invert) const {
-  return invert ? -value : value;
+void Motors::refreshPwmFeedback() {
+  feedback_.rightPwm = -rightMotor_.getCurPwm();
+  feedback_.leftPwm = leftMotor_.getCurPwm();
 }
 
 void Motors::handleRightPulse() {
-  if (digitalRead(rightMotor_.getPortB()) == 0) {
+  // On CHANGE interrupts the direction signal is: portB XOR falling_edge.
+  // A falling edge on the A channel means the pulse-train level is now LOW,
+  // which inverts the normal (RISING-only) quadrature rule.
+  const bool risingEdge = (digitalRead(rightMotor_.getPortA()) != 0);
+  const bool portB      = (digitalRead(rightMotor_.getPortB()) != 0);
+  if (risingEdge ? portB : !portB) {
     rightMotor_.pulsePosMinus();
   } else {
     rightMotor_.pulsePosPlus();
@@ -78,7 +88,9 @@ void Motors::handleRightPulse() {
 }
 
 void Motors::handleLeftPulse() {
-  if (digitalRead(leftMotor_.getPortB()) == 0) {
+  const bool risingEdge = (digitalRead(leftMotor_.getPortA()) != 0);
+  const bool portB      = (digitalRead(leftMotor_.getPortB()) != 0);
+  if (risingEdge ? portB : !portB) {
     leftMotor_.pulsePosMinus();
   } else {
     leftMotor_.pulsePosPlus();

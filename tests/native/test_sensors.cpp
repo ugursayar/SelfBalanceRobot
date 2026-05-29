@@ -7,7 +7,9 @@
 float MeGyro::angleX = 12.5f;
 float MeGyro::angleY = -33.0f;
 float MeGyro::angleZ = 4.0f;
-float MeUltrasonicSensor::distance = 88.0f;
+float MeGyro::gyroX = 0.0f;
+float MeGyro::gyroY = 5.0f;
+float MeGyro::gyroZ = 0.0f;
 
 static void test_balance_axis_uses_configured_x_axis() {
   static_assert(Config::BalanceGyroAxis == GyroAxis::X,

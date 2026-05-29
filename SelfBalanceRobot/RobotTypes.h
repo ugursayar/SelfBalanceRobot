@@ -7,30 +7,21 @@ enum class RobotMode : uint8_t {
   Disarmed,
   Calibrating,
   Balancing,
-  Drive,
   Fault
 };
 
 struct SensorFrame {
   float angleDegrees = 0.0f;
-  float distanceCm = 400.0f;
+  // Raw gyro rate for the balance axis (deg/s). MeGyro integrates gyrY into
+  // getAngleX, so getGyroY() is the correct rate source for BalanceGyroAxis::X.
+  float angleRateDegPerSec = 0.0f;
   bool gyroFresh = false;
-  bool ultrasonicFresh = false;
   unsigned long nowMillis = 0;
 };
 
 struct ControlCommand {
   bool arm = false;
   bool stop = false;
-  bool driveEnabled = false;
-  int16_t forward = 0;
-  int16_t turn = 0;
-  float tuneKp = 0.0f;
-  float tuneKi = 0.0f;
-  float tuneKd = 0.0f;
-  float tuneTrimDegrees = 0.0f;
-  bool hasTuning = false;
-  bool hasTrim = false;
   unsigned long receivedMillis = 0;
 };
 
@@ -46,6 +37,8 @@ struct WheelFeedback {
   float rightSpeedRpm = 0.0f;
   float averagePositionDegrees = 0.0f;
   float averageSpeedRpm = 0.0f;
+  int16_t leftPwm = 0;
+  int16_t rightPwm = 0;
 };
 
 #endif

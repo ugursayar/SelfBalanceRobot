@@ -14,6 +14,7 @@ public:
   bool readCommand(ParsedCommand& command, unsigned long nowMillis);
 
 private:
+  // Serial command lines are capped at 47 bytes plus a null terminator.
   static const uint8_t kBufferSize = 48;
 
   Stream* stream_;

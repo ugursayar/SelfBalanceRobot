@@ -4,7 +4,7 @@ Use short tests and keep the robot held securely until motor direction and balan
 
 ## USB and Bluetooth Commands
 
-Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `Serial` at 115200 baud; set line ending to `Newline` or `Both NL & CR`. Bluetooth test control uses `Serial1` at 115200 baud when `EnableBluetoothTestControl` is true.
+Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `Serial` at 115200 baud; set line ending to `Newline` or `Both NL & CR`. Bluetooth test control listens on MegaPi `Serial2` and `Serial3` at 115200 baud when `EnableBluetoothTestControl` is true, matching the Makeblock MegaPi firmware's Bluetooth candidate ports.
 
 | Command | Description |
 |---|---|
@@ -69,7 +69,7 @@ The learned balance point is stored in EEPROM as an absolute gyro angle. During 
 ## Bluetooth Cable-Free Test Flow
 
 1. Upload over USB, then disconnect the USB cable.
-2. Connect to the Bluetooth serial module at 115200 baud.
+2. Connect to the Bluetooth serial module at 115200 baud. The firmware listens on both `Serial2` and `Serial3`; replies are sent on whichever port receives the command.
 3. Send `STOP`, `AUTO OFF`, `LEARN OFF`, and `BP CLEAR`.
 4. Send `STATUS` and confirm `angle=` changes when tipping forward/backward.
 5. For manual tests, hold the robot still and send `ARM`.

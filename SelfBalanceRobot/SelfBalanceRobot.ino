@@ -2,6 +2,7 @@
 #include "BalanceController.h"
 #include "BalancePointLearner.h"
 #include "BalancePointStore.h"
+#include "BluetoothSerialPort.h"
 #include "CommandReader.h"
 #include "EepromByteStorage.h"
 #include "Motors.h"
@@ -23,6 +24,7 @@ AutoArmController autoArm;
 BalancePointLearner balancePointLearner;
 CommandReader usbCommandReader;
 CommandReader bluetoothCommandReader;
+CommandReader bluetoothSecondaryCommandReader;
 
 unsigned long lastBalanceMicros = 0;
 unsigned long lastDebugMillis = 0;
@@ -97,8 +99,10 @@ void setup() {
   Serial.begin(115200);
   usbCommandReader.begin(Serial);
   if (Config::EnableBluetoothTestControl) {
-    Serial1.begin(Config::BluetoothBaud);
-    bluetoothCommandReader.begin(Serial1);
+    ROBOT_BLUETOOTH_SERIAL_PRIMARY.begin(Config::BluetoothBaud);
+    ROBOT_BLUETOOTH_SERIAL_SECONDARY.begin(Config::BluetoothBaud);
+    bluetoothCommandReader.begin(ROBOT_BLUETOOTH_SERIAL_PRIMARY);
+    bluetoothSecondaryCommandReader.begin(ROBOT_BLUETOOTH_SERIAL_SECONDARY);
   }
 
   sensors.begin();
@@ -121,7 +125,9 @@ void setup() {
   if (Config::EnableDebugSerial) {
     Serial.println(F("SelfBalanceRobot balance-only ready. Send arm or stop."));
     if (Config::EnableBluetoothTestControl) {
-      Serial.print(F("bluetooth-test-control serial1="));
+      Serial.print(F("bluetooth-test-control serial="));
+      Serial.print(RobotBluetoothSerial::Name);
+      Serial.print(F(" baud="));
       Serial.println(Config::BluetoothBaud);
     }
   }
@@ -304,8 +310,10 @@ void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm) {
       Serial.println(activeBalancePointDegrees);
     }
     if (Config::EnableBluetoothTestControl && bluetoothTelemetryEnabled) {
-      Serial1.print(F("auto-arm balancePoint="));
-      Serial1.println(activeBalancePointDegrees);
+      ROBOT_BLUETOOTH_SERIAL_PRIMARY.print(F("auto-arm balancePoint="));
+      ROBOT_BLUETOOTH_SERIAL_PRIMARY.println(activeBalancePointDegrees);
+      ROBOT_BLUETOOTH_SERIAL_SECONDARY.print(F("auto-arm balancePoint="));
+      ROBOT_BLUETOOTH_SERIAL_SECONDARY.println(activeBalancePointDegrees);
     }
   }
 }
@@ -351,16 +359,25 @@ void updateBalancePointLearning(const SensorFrame& frame,
     Serial.println(balancePointStore.writeCounter());
   }
   if (Config::EnableBluetoothTestControl && bluetoothTelemetryEnabled) {
-    Serial1.print(F("balance-point saved="));
-    Serial1.print(activeBalancePointDegrees);
-    Serial1.print(F(" writes="));
-    Serial1.println(balancePointStore.writeCounter());
+    ROBOT_BLUETOOTH_SERIAL_PRIMARY.print(F("balance-point saved="));
+    ROBOT_BLUETOOTH_SERIAL_PRIMARY.print(activeBalancePointDegrees);
+    ROBOT_BLUETOOTH_SERIAL_PRIMARY.print(F(" writes="));
+    ROBOT_BLUETOOTH_SERIAL_PRIMARY.println(balancePointStore.writeCounter());
+    ROBOT_BLUETOOTH_SERIAL_SECONDARY.print(F("balance-point saved="));
+    ROBOT_BLUETOOTH_SERIAL_SECONDARY.print(activeBalancePointDegrees);
+    ROBOT_BLUETOOTH_SERIAL_SECONDARY.print(F(" writes="));
+    ROBOT_BLUETOOTH_SERIAL_SECONDARY.println(balancePointStore.writeCounter());
   }
 }
 
 void readCommands(unsigned long nowMillis) {
   if (Config::EnableBluetoothTestControl) {
-    if (readCommandsFrom(bluetoothCommandReader, Serial1, nowMillis)) {
+    if (readCommandsFrom(bluetoothCommandReader, ROBOT_BLUETOOTH_SERIAL_PRIMARY,
+                         nowMillis)) {
+      return;
+    }
+    if (readCommandsFrom(bluetoothSecondaryCommandReader,
+                         ROBOT_BLUETOOTH_SERIAL_SECONDARY, nowMillis)) {
       return;
     }
   }
@@ -490,8 +507,10 @@ void resetCommandInputs() {
   drainCommandStream(Serial);
   usbCommandReader.reset();
   if (Config::EnableBluetoothTestControl) {
-    drainCommandStream(Serial1);
+    drainCommandStream(ROBOT_BLUETOOTH_SERIAL_PRIMARY);
+    drainCommandStream(ROBOT_BLUETOOTH_SERIAL_SECONDARY);
     bluetoothCommandReader.reset();
+    bluetoothSecondaryCommandReader.reset();
   }
 }
 
@@ -741,7 +760,8 @@ void printDebug(const SensorFrame& frame) {
       frame.nowMillis - lastBluetoothTelemetryMillis >=
           Config::BluetoothTelemetryPeriodMillis) {
     lastBluetoothTelemetryMillis = frame.nowMillis;
-    printBluetoothTelemetryTo(Serial1, frame);
+    printBluetoothTelemetryTo(ROBOT_BLUETOOTH_SERIAL_PRIMARY, frame);
+    printBluetoothTelemetryTo(ROBOT_BLUETOOTH_SERIAL_SECONDARY, frame);
   }
 }
 

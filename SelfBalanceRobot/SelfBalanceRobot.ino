@@ -1,5 +1,6 @@
 #include "AutoArmController.h"
 #include "BalanceController.h"
+#include "BalancePipeline.h"
 #include "BalancePointLearner.h"
 #include "BalancePointStore.h"
 #include "BluetoothSerialPort.h"
@@ -28,6 +29,7 @@ void captureResetCause() {
 Sensors sensors;
 Motors motors;
 BalanceController balance;
+BalancePipeline balancePipeline;
 RobotState robotState;
 EepromByteStorage eepromStorage;
 BalancePointStore balancePointStore(eepromStorage,
@@ -90,12 +92,6 @@ void updateBalancePointLearning(const SensorFrame& frame,
 void applyRuntimePid(float kp, float ki, float kd);
 void applyRuntimeTrim(float trimDegrees);
 bool startMotorTest(int16_t output, unsigned long nowMillis);
-float baseBalanceTargetDegrees();
-float clampWheelSpeedTargetCorrection(float correctionDegrees);
-float clampTravelHoldTargetCorrection(float correctionDegrees);
-int16_t clampMotorCommand(float command);
-int16_t applyLargeLeanBoost(int16_t balanceOutput, float angleError);
-int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError);
 void printStatus(Stream& out, const SensorFrame& frame);
 void printResetCause(Stream& out);
 void printResetFlag(Stream& out, bool present, const __FlashStringHelper* label,
@@ -233,55 +229,27 @@ void loop() {
   }
 
   if (robotState.motorsEnabled()) {
-    const float speedCorrection = clampWheelSpeedTargetCorrection(
-        lastWheelFeedback.averageSpeedRpm *
-        Config::WheelSpeedTargetCorrectionDegreesPerRpm);
-    lastTravelHoldTargetCorrection = clampTravelHoldTargetCorrection(
-        lastWheelFeedback.averagePositionDegrees *
-        Config::TravelHoldTargetDegreesPerWheelDegree);
-    // Ramp the target from uprightAngle to (upright+trim) over
-    // BalanceTargetRampMillis to avoid large initial error spikes.
-    const float baseTarget = baseBalanceTargetDegrees();
-    const float finalTarget = baseTarget + speedCorrection +
-                              lastTravelHoldTargetCorrection;
-    const unsigned long rampMs = Config::BalanceTargetRampMillis;
-    const unsigned long elapsed = nowMillis - balancingStartMillis;
-    const float rampStartTarget = balanceSessionUsesPersistedPoint
-                                      ? baseTarget
-                                      : robotState.uprightAngleDegrees();
-    if (elapsed < rampMs) {
-      const float rampFraction = static_cast<float>(elapsed) /
-                                 static_cast<float>(rampMs);
-      lastTargetAngle = rampStartTarget +
-                        rampFraction * (finalTarget - rampStartTarget);
-    } else {
-      lastTargetAngle = finalTarget;
-    }
-    balance.setTargetAngle(lastTargetAngle);
+    BalancePipelineInput pipelineInput;
+    pipelineInput.frame = frame;
+    pipelineInput.wheelFeedback = lastWheelFeedback;
+    pipelineInput.uprightAngleDegrees = robotState.uprightAngleDegrees();
+    pipelineInput.activeBalancePointDegrees = activeBalancePointDegrees;
+    pipelineInput.currentTrimDegrees = currentTrimDegrees;
+    pipelineInput.balancingStartMillis = balancingStartMillis;
+    pipelineInput.balanceSessionUsesPersistedPoint =
+        balanceSessionUsesPersistedPoint;
+    pipelineInput.dtSeconds = dtSeconds;
 
-    int16_t balanceOutput = balance.update(frame.angleDegrees,
-                                           frame.angleRateDegPerSec,
-                                           dtSeconds);
-    lastRawBalanceOutput = balanceOutput;
-    balanceOutput =
-        applyMinimumBalanceCommand(balanceOutput,
-                                   lastTargetAngle - frame.angleDegrees);
-    balanceOutput =
-        applyLargeLeanBoost(balanceOutput,
-                            lastTargetAngle - frame.angleDegrees);
-    const float angleError = lastTargetAngle - frame.angleDegrees;
-    const float absAngleError = angleError < 0.0f ? -angleError : angleError;
-    if (absAngleError <= Config::WheelSpeedDampingMaxAngleErrorDegrees) {
-      balanceOutput = clampMotorCommand(
-          static_cast<float>(balanceOutput) -
-          (lastWheelFeedback.averageSpeedRpm *
-           Config::WheelSpeedDampingCommandPerRpm));
-    }
-
-    lastBalanceOutput = balanceOutput;
-    updateBalancePointLearning(frame, baseTarget, balanceOutput, nowMillis);
-    lastMotorOutput.left = balanceOutput;
-    lastMotorOutput.right = balanceOutput;
+    const BalancePipelineOutput pipelineOutput =
+        balancePipeline.update(pipelineInput, balance);
+    lastTargetAngle = pipelineOutput.targetAngleDegrees;
+    lastRawBalanceOutput = pipelineOutput.rawBalanceOutput;
+    lastBalanceOutput = pipelineOutput.balanceOutput;
+    lastTravelHoldTargetCorrection =
+        pipelineOutput.travelHoldTargetCorrectionDegrees;
+    updateBalancePointLearning(frame, pipelineOutput.baseTargetDegrees,
+                               pipelineOutput.balanceOutput, nowMillis);
+    lastMotorOutput = pipelineOutput.motorCommand;
     motors.write(lastMotorOutput);
     runtimeStats.recordMotorWrite();
   } else if (motorTestActive(nowMillis)) {
@@ -614,81 +582,6 @@ bool startMotorTest(int16_t output, unsigned long nowMillis) {
   lastMotorOutput.right = output;
   motorTestUntilMillis = nowMillis + Config::MotorTestMillis;
   return true;
-}
-
-float baseBalanceTargetDegrees() {
-  if (balanceSessionUsesPersistedPoint) {
-    return activeBalancePointDegrees;
-  }
-  return robotState.uprightAngleDegrees() + currentTrimDegrees;
-}
-
-float clampWheelSpeedTargetCorrection(float correctionDegrees) {
-  const float limit = Config::MaxWheelSpeedTargetCorrectionDegrees;
-  if (correctionDegrees > limit) {
-    return limit;
-  }
-  if (correctionDegrees < -limit) {
-    return -limit;
-  }
-  return correctionDegrees;
-}
-
-float clampTravelHoldTargetCorrection(float correctionDegrees) {
-  const float limit = Config::MaxTravelHoldTargetCorrectionDegrees;
-  if (correctionDegrees > limit) {
-    return limit;
-  }
-  if (correctionDegrees < -limit) {
-    return -limit;
-  }
-  return correctionDegrees;
-}
-
-int16_t clampMotorCommand(float command) {
-  if (command > Config::MaxMotorCommand) {
-    return Config::MaxMotorCommand;
-  }
-  if (command < -Config::MaxMotorCommand) {
-    return -Config::MaxMotorCommand;
-  }
-  return static_cast<int16_t>(command);
-}
-
-int16_t applyLargeLeanBoost(int16_t balanceOutput, float angleError) {
-  const float absAngleError = angleError < 0.0f ? -angleError : angleError;
-  if (absAngleError <= Config::LargeLeanBoostAngleDegrees) {
-    return balanceOutput;
-  }
-
-  const float extra =
-      (absAngleError - Config::LargeLeanBoostAngleDegrees) *
-      Config::LargeLeanBoostCommandPerDegree;
-  const float correctionDirection = angleError < 0.0f ? 1.0f : -1.0f;
-  return clampMotorCommand(static_cast<float>(balanceOutput) +
-                           (correctionDirection * extra));
-}
-
-int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError) {
-  if (angleError < 0.0f) {
-    angleError = -angleError;
-  }
-  if (angleError < Config::MinBalanceBoostAngleDegrees) {
-    return balanceOutput;
-  }
-
-  const int16_t minimum = Config::MinBalanceMotorCommand;
-  if (minimum <= 0) {
-    return balanceOutput;
-  }
-
-  if (balanceOutput > 0 && balanceOutput < minimum) {
-    return minimum;
-  }
-  if (balanceOutput < 0 && balanceOutput > -minimum) {
-    return static_cast<int16_t>(-minimum);
-  }
-  return balanceOutput;
 }
 
 void printStatus(Stream& out, const SensorFrame& frame) {

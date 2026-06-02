@@ -4,9 +4,9 @@ CXXFLAGS ?= -std=gnu++11 -Wall -Wextra -Werror
 ROOT := ../..
 BUILD_DIR := build
 
-.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats clean
+.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline clean
 
-all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats
+all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -28,6 +28,12 @@ $(BUILD_DIR)/test_balance_controller: test_balance_controller.cpp $(ROOT)/SelfBa
 
 test_balance_controller: $(BUILD_DIR)/test_balance_controller
 	./$(BUILD_DIR)/test_balance_controller
+
+$(BUILD_DIR)/test_balance_pipeline: test_balance_pipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.h $(ROOT)/SelfBalanceRobot/BalanceController.cpp $(ROOT)/SelfBalanceRobot/BalanceController.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(ROOT)/SelfBalanceRobot/config.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_balance_pipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.cpp $(ROOT)/SelfBalanceRobot/BalanceController.cpp -o $@
+
+test_balance_pipeline: $(BUILD_DIR)/test_balance_pipeline
+	./$(BUILD_DIR)/test_balance_pipeline
 
 $(BUILD_DIR)/test_balance_point_store: test_balance_point_store.cpp $(ROOT)/SelfBalanceRobot/BalancePointStore.cpp $(ROOT)/SelfBalanceRobot/BalancePointStore.h | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -I$(ROOT)/SelfBalanceRobot test_balance_point_store.cpp $(ROOT)/SelfBalanceRobot/BalancePointStore.cpp -o $@

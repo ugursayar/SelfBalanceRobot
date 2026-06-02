@@ -6,12 +6,23 @@
 #include "CommandReader.h"
 #include "EepromByteStorage.h"
 #include "Motors.h"
+#include "ResetDiagnostics.h"
 #include "RobotState.h"
 #include "Sensors.h"
 #include "config.h"
 
 #include <MeMegaPi.h>
+#include <avr/io.h>
+#include <avr/wdt.h>
 #include <string.h>
+
+uint8_t resetCauseRaw __attribute__((section(".noinit")));
+void captureResetCause() __attribute__((naked)) __attribute__((section(".init3")));
+void captureResetCause() {
+  resetCauseRaw = MCUSR;
+  MCUSR = 0;
+  wdt_disable();
+}
 
 Sensors sensors;
 Motors motors;
@@ -24,7 +35,6 @@ AutoArmController autoArm;
 BalancePointLearner balancePointLearner;
 CommandReader usbCommandReader;
 CommandReader bluetoothCommandReader;
-CommandReader bluetoothSecondaryCommandReader;
 
 unsigned long lastBalanceMicros = 0;
 unsigned long lastDebugMillis = 0;
@@ -85,6 +95,9 @@ int16_t clampMotorCommand(float command);
 int16_t applyLargeLeanBoost(int16_t balanceOutput, float angleError);
 int16_t applyMinimumBalanceCommand(int16_t balanceOutput, float angleError);
 void printStatus(Stream& out, const SensorFrame& frame);
+void printResetCause(Stream& out);
+void printResetFlag(Stream& out, bool present, const __FlashStringHelper* label,
+                    bool& hasPrinted);
 void printMode(Stream& out, RobotMode mode);
 void printModeChangeIfNeeded();
 void printDebug(const SensorFrame& frame);
@@ -99,10 +112,8 @@ void setup() {
   Serial.begin(115200);
   usbCommandReader.begin(Serial);
   if (Config::EnableBluetoothTestControl) {
-    ROBOT_BLUETOOTH_SERIAL_PRIMARY.begin(Config::BluetoothBaud);
-    ROBOT_BLUETOOTH_SERIAL_SECONDARY.begin(Config::BluetoothBaud);
-    bluetoothCommandReader.begin(ROBOT_BLUETOOTH_SERIAL_PRIMARY);
-    bluetoothSecondaryCommandReader.begin(ROBOT_BLUETOOTH_SERIAL_SECONDARY);
+    ROBOT_BLUETOOTH_SERIAL.begin(Config::BluetoothBaud);
+    bluetoothCommandReader.begin(ROBOT_BLUETOOTH_SERIAL);
   }
 
   sensors.begin();
@@ -310,10 +321,8 @@ void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm) {
       Serial.println(activeBalancePointDegrees);
     }
     if (Config::EnableBluetoothTestControl && bluetoothTelemetryEnabled) {
-      ROBOT_BLUETOOTH_SERIAL_PRIMARY.print(F("auto-arm balancePoint="));
-      ROBOT_BLUETOOTH_SERIAL_PRIMARY.println(activeBalancePointDegrees);
-      ROBOT_BLUETOOTH_SERIAL_SECONDARY.print(F("auto-arm balancePoint="));
-      ROBOT_BLUETOOTH_SERIAL_SECONDARY.println(activeBalancePointDegrees);
+      ROBOT_BLUETOOTH_SERIAL.print(F("auto-arm balancePoint="));
+      ROBOT_BLUETOOTH_SERIAL.println(activeBalancePointDegrees);
     }
   }
 }
@@ -359,25 +368,17 @@ void updateBalancePointLearning(const SensorFrame& frame,
     Serial.println(balancePointStore.writeCounter());
   }
   if (Config::EnableBluetoothTestControl && bluetoothTelemetryEnabled) {
-    ROBOT_BLUETOOTH_SERIAL_PRIMARY.print(F("balance-point saved="));
-    ROBOT_BLUETOOTH_SERIAL_PRIMARY.print(activeBalancePointDegrees);
-    ROBOT_BLUETOOTH_SERIAL_PRIMARY.print(F(" writes="));
-    ROBOT_BLUETOOTH_SERIAL_PRIMARY.println(balancePointStore.writeCounter());
-    ROBOT_BLUETOOTH_SERIAL_SECONDARY.print(F("balance-point saved="));
-    ROBOT_BLUETOOTH_SERIAL_SECONDARY.print(activeBalancePointDegrees);
-    ROBOT_BLUETOOTH_SERIAL_SECONDARY.print(F(" writes="));
-    ROBOT_BLUETOOTH_SERIAL_SECONDARY.println(balancePointStore.writeCounter());
+    ROBOT_BLUETOOTH_SERIAL.print(F("balance-point saved="));
+    ROBOT_BLUETOOTH_SERIAL.print(activeBalancePointDegrees);
+    ROBOT_BLUETOOTH_SERIAL.print(F(" writes="));
+    ROBOT_BLUETOOTH_SERIAL.println(balancePointStore.writeCounter());
   }
 }
 
 void readCommands(unsigned long nowMillis) {
   if (Config::EnableBluetoothTestControl) {
-    if (readCommandsFrom(bluetoothCommandReader, ROBOT_BLUETOOTH_SERIAL_PRIMARY,
+    if (readCommandsFrom(bluetoothCommandReader, ROBOT_BLUETOOTH_SERIAL,
                          nowMillis)) {
-      return;
-    }
-    if (readCommandsFrom(bluetoothSecondaryCommandReader,
-                         ROBOT_BLUETOOTH_SERIAL_SECONDARY, nowMillis)) {
       return;
     }
   }
@@ -507,10 +508,8 @@ void resetCommandInputs() {
   drainCommandStream(Serial);
   usbCommandReader.reset();
   if (Config::EnableBluetoothTestControl) {
-    drainCommandStream(ROBOT_BLUETOOTH_SERIAL_PRIMARY);
-    drainCommandStream(ROBOT_BLUETOOTH_SERIAL_SECONDARY);
+    drainCommandStream(ROBOT_BLUETOOTH_SERIAL);
     bluetoothCommandReader.reset();
-    bluetoothSecondaryCommandReader.reset();
   }
 }
 
@@ -689,6 +688,18 @@ void printStatus(Stream& out, const SensorFrame& frame) {
   out.print(activeBalancePointDegrees);
   out.print(F(" stored="));
   out.print(balancePointStore.hasStoredBalancePoint() ? F("yes") : F("no"));
+  out.print(F(" reset="));
+  printResetCause(out);
+  out.print(F(" resetRaw=0x"));
+  out.print(resetCauseRaw, HEX);
+  out.print(F(" auto="));
+  out.print(runtimeAutoArmEnabled ? F("on") : F("off"));
+  out.print(F(" autoErr="));
+  out.print(autoArm.angleErrorDegrees(frame));
+  out.print(F(" gyroFresh="));
+  out.print(frame.gyroFresh ? F("yes") : F("no"));
+  out.print(F(" gyroRate="));
+  out.print(frame.angleRateDegPerSec);
   out.print(F(" rate="));
   out.print(balance.lastMeasuredAngleRateDegreesPerSecond());
   out.print(F(" raw="));
@@ -711,6 +722,33 @@ void printStatus(Stream& out, const SensorFrame& frame) {
   out.print(currentKi);
   out.print(F(" kd="));
   out.println(currentKd);
+}
+
+void printResetCause(Stream& out) {
+  const ResetDiagnostics::ResetCauseFlags flags =
+      ResetDiagnostics::decode(resetCauseRaw);
+  bool hasPrinted = false;
+  printResetFlag(out, flags.powerOn, F("por"), hasPrinted);
+  printResetFlag(out, flags.external, F("ext"), hasPrinted);
+  printResetFlag(out, flags.brownOut, F("bor"), hasPrinted);
+  printResetFlag(out, flags.watchdog, F("wdt"), hasPrinted);
+  printResetFlag(out, flags.jtag, F("jtag"), hasPrinted);
+  printResetFlag(out, flags.unknown, F("unknown"), hasPrinted);
+  if (!hasPrinted) {
+    out.print(F("none"));
+  }
+}
+
+void printResetFlag(Stream& out, bool present, const __FlashStringHelper* label,
+                    bool& hasPrinted) {
+  if (!present) {
+    return;
+  }
+  if (hasPrinted) {
+    out.print(F(","));
+  }
+  out.print(label);
+  hasPrinted = true;
 }
 
 void printMode(Stream& out, RobotMode mode) {
@@ -760,8 +798,7 @@ void printDebug(const SensorFrame& frame) {
       frame.nowMillis - lastBluetoothTelemetryMillis >=
           Config::BluetoothTelemetryPeriodMillis) {
     lastBluetoothTelemetryMillis = frame.nowMillis;
-    printBluetoothTelemetryTo(ROBOT_BLUETOOTH_SERIAL_PRIMARY, frame);
-    printBluetoothTelemetryTo(ROBOT_BLUETOOTH_SERIAL_SECONDARY, frame);
+    printBluetoothTelemetryTo(ROBOT_BLUETOOTH_SERIAL, frame);
   }
 }
 
@@ -813,6 +850,14 @@ void printBluetoothTelemetryTo(Stream& out, const SensorFrame& frame) {
   out.print(frame.angleDegrees);
   out.print(F(" target="));
   out.print(lastTargetAngle);
+  out.print(F(" auto="));
+  out.print(runtimeAutoArmEnabled ? F("on") : F("off"));
+  out.print(F(" autoErr="));
+  out.print(autoArm.angleErrorDegrees(frame));
+  out.print(F(" gyroFresh="));
+  out.print(frame.gyroFresh ? F("yes") : F("no"));
+  out.print(F(" gyroRate="));
+  out.print(frame.angleRateDegPerSec);
   out.print(F(" rate="));
   out.print(balance.lastMeasuredAngleRateDegreesPerSecond());
   out.print(F(" balance="));

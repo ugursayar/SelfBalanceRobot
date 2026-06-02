@@ -4,9 +4,9 @@ CXXFLAGS ?= -std=gnu++11 -Wall -Wextra -Werror
 ROOT := ../..
 BUILD_DIR := build
 
-.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port clean
+.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics clean
 
-all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port
+all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -58,6 +58,18 @@ $(BUILD_DIR)/test_bluetooth_serial_port: test_bluetooth_serial_port.cpp $(ROOT)/
 
 test_bluetooth_serial_port: $(BUILD_DIR)/test_bluetooth_serial_port
 	./$(BUILD_DIR)/test_bluetooth_serial_port
+
+$(BUILD_DIR)/test_config: test_config.cpp $(ROOT)/SelfBalanceRobot/config.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_config.cpp -o $@
+
+test_config: $(BUILD_DIR)/test_config
+	./$(BUILD_DIR)/test_config
+
+$(BUILD_DIR)/test_reset_diagnostics: test_reset_diagnostics.cpp $(ROOT)/SelfBalanceRobot/ResetDiagnostics.cpp $(ROOT)/SelfBalanceRobot/ResetDiagnostics.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(ROOT)/SelfBalanceRobot test_reset_diagnostics.cpp $(ROOT)/SelfBalanceRobot/ResetDiagnostics.cpp -o $@
+
+test_reset_diagnostics: $(BUILD_DIR)/test_reset_diagnostics
+	./$(BUILD_DIR)/test_reset_diagnostics
 
 $(BUILD_DIR)/test_robot_state: test_robot_state.cpp $(ROOT)/SelfBalanceRobot/RobotState.cpp $(ROOT)/SelfBalanceRobot/RobotState.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(ROOT)/SelfBalanceRobot/config.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_robot_state.cpp $(ROOT)/SelfBalanceRobot/RobotState.cpp -o $@

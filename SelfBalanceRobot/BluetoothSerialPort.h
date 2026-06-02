@@ -3,17 +3,16 @@
 
 #include <stdint.h>
 
-// Makeblock MegaPi examples listen on both hardware UARTs used by the RJ25
-// shield and wireless module variants.
-#define ROBOT_BLUETOOTH_SERIAL_PRIMARY Serial2
-#define ROBOT_BLUETOOTH_SERIAL_SECONDARY Serial3
-#define ROBOT_BLUETOOTH_SERIAL ROBOT_BLUETOOTH_SERIAL_PRIMARY
+// Hardware UART map:
+//   Serial  - USB debug monitor and testing fallback
+//   Serial2 - RPi primary control link, reserved for future use
+//   Serial3 - Makeblock Bluetooth module
+#define ROBOT_BLUETOOTH_SERIAL Serial3
 
 namespace RobotBluetoothSerial {
-constexpr uint8_t PrimaryHardwareSerialIndex = 2;
-constexpr uint8_t SecondaryHardwareSerialIndex = 3;
-constexpr uint8_t ProbePortCount = 2;
-constexpr const char* Name = "Serial2+Serial3";
+constexpr uint8_t ReservedRpiHardwareSerialIndex = 2;
+constexpr uint8_t HardwareSerialIndex = 3;
+constexpr const char* Name = "Serial3";
 }
 
 #endif

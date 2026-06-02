@@ -7,7 +7,7 @@ Restore Bluetooth as a cable-free test and tuning console only. The immediate pr
 ## Goals
 
 - Accept the same newline command format from USB serial and Bluetooth serial.
-- Use Bluetooth on the MegaPi hardware UARTs used by Makeblock firmware. The firmware listens on both `Serial2` and `Serial3` at `115200` baud, enabled by config.
+- Use Bluetooth on MegaPi `Serial3` at `115200` baud, enabled by config. `Serial2` is reserved for the RPi primary control link.
 - Keep Bluetooth scoped to testing and control.
 - Add balance-point commands so a bad EEPROM value can be diagnosed and removed without re-uploading firmware.
 - Add runtime switches for auto-arm and balance-point learning so tests can isolate the balance algorithm from persistence.
@@ -22,7 +22,7 @@ Restore Bluetooth as a cable-free test and tuning console only. The immediate pr
 
 ## Architecture
 
-Extract the current inline USB command parser into a shared parser module. The sketch will read complete lines from USB `Serial` plus Bluetooth candidate ports `Serial2` and `Serial3`, feed them to the same parser, then apply the parsed action through the existing sketch-owned components.
+Extract the current inline USB command parser into a shared parser module. The sketch will read complete lines from USB `Serial` plus Bluetooth `Serial3`, feed them to the same parser, then apply the parsed action through the existing sketch-owned components.
 
 Planned modules:
 

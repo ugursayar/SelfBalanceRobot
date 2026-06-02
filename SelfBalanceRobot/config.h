@@ -53,7 +53,7 @@ namespace Config {
   constexpr float MinPersistedBalancePointDegrees = -12.0f;
   constexpr float MaxPersistedBalancePointDegrees = 12.0f;
   constexpr float AutoArmAngleWindowDegrees = 3.0f;
-  constexpr float AutoArmMaxRateDegPerSec = 6.0f;
+  constexpr float AutoArmMaxRateDegPerSec = 12.0f;
   constexpr unsigned long AutoArmStillMillis = 900UL;
   constexpr unsigned long AutoArmStopCooldownMillis = 3000UL;
 

@@ -4,7 +4,7 @@ Use short tests and keep the robot held securely until motor direction and balan
 
 ## USB and Bluetooth Commands
 
-Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `Serial` at 115200 baud; set line ending to `Newline` or `Both NL & CR`. Bluetooth test control listens on MegaPi `Serial2` and `Serial3` at 115200 baud when `EnableBluetoothTestControl` is true, matching the Makeblock MegaPi firmware's Bluetooth candidate ports.
+Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `Serial` at 115200 baud; set line ending to `Newline` or `Both NL & CR`. Bluetooth test control listens on MegaPi `Serial3` at 115200 baud when `EnableBluetoothTestControl` is true. `Serial2` is reserved for the RPi primary control link.
 
 | Command | Description |
 |---|---|
@@ -26,6 +26,7 @@ Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `S
 `PID` and `TRIM` take effect on the next balance loop tick and reply on the command channel.
 `BP SET` is accepted only while fully disarmed: no motor test, no active calibration/balancing/fault, no fresh `ARM`, and no `STOP`/`BP CLEAR` cooldown.
 Do not copy a `TRIM` offset into `BP SET`; persist the absolute target/balance-point angle reported by diagnostics.
+`STATUS` includes `reset=` and `resetRaw=`. Reset tokens are `por` (power-on), `ext` (reset pin), `bor` (brownout), `wdt` (watchdog), and `jtag`. If live PID settings return to the compiled default after motors wake, check these fields.
 
 Auto-arm is enabled by default. If EEPROM contains a valid learned balance point, or if the configured default balance point is close enough for the current build, the robot can enter balancing without a serial `ARM` when it is held nearly still near that angle. `STOP` still disarms immediately and starts a short auto-arm cooldown.
 
@@ -69,7 +70,7 @@ The learned balance point is stored in EEPROM as an absolute gyro angle. During 
 ## Bluetooth Cable-Free Test Flow
 
 1. Upload over USB, then disconnect the USB cable.
-2. Connect to the Bluetooth serial module at 115200 baud. The firmware listens on both `Serial2` and `Serial3`; replies are sent on whichever port receives the command.
+2. Connect to the Bluetooth serial module at 115200 baud. The firmware listens on `Serial3`.
 3. Send `STOP`, `AUTO OFF`, `LEARN OFF`, and `BP CLEAR`.
 4. Send `STATUS` and confirm `angle=` changes when tipping forward/backward.
 5. For manual tests, hold the robot still and send `ARM`.
@@ -99,7 +100,7 @@ MaxTravelHoldTargetCorrectionDegrees = 0.5
 StillAngleDeltaDegrees = 1.5
 AutoArmDefaultBalancePointDegrees = 0.70
 AutoArmAngleWindowDegrees = 3.0
-AutoArmMaxRateDegPerSec = 6.0
+AutoArmMaxRateDegPerSec = 12.0
 AutoArmStillMillis = 900
 AutoArmStopCooldownMillis = 3000
 BalancePointLearningAlpha = 0.25

@@ -7,19 +7,16 @@
 #define Serial3 3
 #include "../../SelfBalanceRobot/BluetoothSerialPort.h"
 
-static void test_megapi_bluetooth_probes_serial2_and_serial3() {
-  static_assert(RobotBluetoothSerial::PrimaryHardwareSerialIndex == 2,
-                "MegaPi RJ25 port 5 maps to Serial2 on ATmega2560");
-  static_assert(RobotBluetoothSerial::SecondaryHardwareSerialIndex == 3,
-                "Makeblock MegaPi firmware also accepts Bluetooth on Serial3");
-  static_assert(RobotBluetoothSerial::ProbePortCount == 2,
-                "Bluetooth test control should probe both MegaPi candidates");
-  assert(ROBOT_BLUETOOTH_SERIAL_PRIMARY == 2);
-  assert(ROBOT_BLUETOOTH_SERIAL_SECONDARY == 3);
+static void test_bluetooth_uses_serial3_and_leaves_serial2_for_rpi() {
+  static_assert(RobotBluetoothSerial::ReservedRpiHardwareSerialIndex == 2,
+                "Serial2 is reserved for the RPi primary control link");
+  static_assert(RobotBluetoothSerial::HardwareSerialIndex == 3,
+                "Bluetooth module is wired to Serial3");
+  assert(ROBOT_BLUETOOTH_SERIAL == 3);
 }
 
 int main() {
-  test_megapi_bluetooth_probes_serial2_and_serial3();
+  test_bluetooth_uses_serial3_and_leaves_serial2_for_rpi();
 
   std::cout << "test_bluetooth_serial_port PASS\n";
   return EXIT_SUCCESS;

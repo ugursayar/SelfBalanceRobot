@@ -12,6 +12,7 @@ public:
   void setTargetBalancePoint(float balancePointDegrees);
   void reset();
   void suppressUntil(unsigned long nowMillis, unsigned long cooldownMillis);
+  float angleErrorDegrees(const SensorFrame& frame) const;
   bool update(const SensorFrame& frame);
 
 private:

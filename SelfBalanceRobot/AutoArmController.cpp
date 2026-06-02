@@ -38,14 +38,17 @@ void AutoArmController::suppressUntil(unsigned long nowMillis,
   reset();
 }
 
+float AutoArmController::angleErrorDegrees(const SensorFrame& frame) const {
+  return frame.angleDegrees - targetBalancePointDegrees_;
+}
+
 bool AutoArmController::update(const SensorFrame& frame) {
   if (updateSuppression(frame.nowMillis)) {
     reset();
     return false;
   }
 
-  const float angleErrorDegrees =
-      frame.angleDegrees - targetBalancePointDegrees_;
+  const float angleErrorDegrees = this->angleErrorDegrees(frame);
   const bool still =
       frame.gyroFresh && fabsf(angleErrorDegrees) <= angleWindowDegrees_ &&
       fabsf(frame.angleRateDegPerSec) <= maxRateDegPerSec_;

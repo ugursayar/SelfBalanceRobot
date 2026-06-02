@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
+#include <math.h>
 
 #include "../../SelfBalanceRobot/AutoArmController.h"
 
@@ -43,6 +44,16 @@ static void test_triggers_after_stillness_duration() {
   assert(controller.update(frame(0.7f, 0.0f, 1500)));
 }
 
+static void test_reports_angle_error_from_target_balance_point() {
+  AutoArmController controller = configured();
+  controller.setTargetBalancePoint(1.5f);
+
+  assert(fabs(controller.angleErrorDegrees(frame(0.9f, 0.0f, 0)) +
+              0.6f) < 0.001f);
+  assert(fabs(controller.angleErrorDegrees(frame(2.0f, 0.0f, 0)) -
+              0.5f) < 0.001f);
+}
+
 static void test_resets_candidate_when_motion_breaks_stillness() {
   AutoArmController controller = configured();
 
@@ -79,6 +90,7 @@ int main() {
   test_does_not_trigger_outside_angle_window();
   test_does_not_trigger_when_rate_is_too_high();
   test_triggers_after_stillness_duration();
+  test_reports_angle_error_from_target_balance_point();
   test_resets_candidate_when_motion_breaks_stillness();
   test_stop_cooldown_suppresses_auto_arm_until_expired();
   test_expired_cooldown_does_not_suppress_after_timer_wrap();

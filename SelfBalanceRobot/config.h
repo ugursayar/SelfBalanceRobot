@@ -77,6 +77,7 @@ namespace Config {
   constexpr unsigned long BluetoothBaud = 115200UL;
   constexpr unsigned long BluetoothTelemetryPeriodMillis = 250UL;
   constexpr unsigned long DebugPeriodMillis = 50UL;
+  constexpr uint8_t FeedbackFullRefreshPeriodTicks = 5;
 
   // Ramp the balance target from uprightAngle down to (upright+trim) over this
   // many milliseconds at the start of each balancing session.  Prevents the

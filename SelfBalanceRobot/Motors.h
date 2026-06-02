@@ -3,6 +3,7 @@
 
 #include <MeEncoderOnBoard.h>
 
+#include "FeedbackPolicy.h"
 #include "RobotTypes.h"
 #include "config.h"
 
@@ -11,7 +12,8 @@ public:
   Motors();
 
   void begin();
-  WheelFeedback updateFeedback();
+  WheelFeedback updateFeedback(
+      MotorFeedbackMode mode = MotorFeedbackMode::Full);
   const WheelFeedback& feedback() const;
   void resetTravel();
   void write(const MotorCommand& command);

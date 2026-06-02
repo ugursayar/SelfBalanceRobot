@@ -27,22 +27,25 @@ void Motors::begin() {
   stop();
 }
 
-WheelFeedback Motors::updateFeedback() {
-  rightMotor_.updateSpeed();
-  leftMotor_.updateSpeed();
+WheelFeedback Motors::updateFeedback(MotorFeedbackMode mode) {
+  if (mode == MotorFeedbackMode::Full) {
+    rightMotor_.updateSpeed();
+    leftMotor_.updateSpeed();
+    feedback_.rightSpeedRpm = -rightMotor_.getCurrentSpeed();
+    feedback_.leftSpeedRpm = leftMotor_.getCurrentSpeed();
+    feedback_.averageSpeedRpm =
+        (feedback_.rightSpeedRpm + feedback_.leftSpeedRpm) * 0.5f;
+  }
+
   rightMotor_.updateCurPos();
   leftMotor_.updateCurPos();
 
   feedback_.rightPositionDegrees = -rightMotor_.getCurPos();
   feedback_.leftPositionDegrees = leftMotor_.getCurPos();
-  feedback_.rightSpeedRpm = -rightMotor_.getCurrentSpeed();
-  feedback_.leftSpeedRpm = leftMotor_.getCurrentSpeed();
   feedback_.averagePositionDegrees =
       (static_cast<float>(feedback_.rightPositionDegrees) +
        static_cast<float>(feedback_.leftPositionDegrees)) *
       0.5f;
-  feedback_.averageSpeedRpm =
-      (feedback_.rightSpeedRpm + feedback_.leftSpeedRpm) * 0.5f;
   feedback_.rightPwm = -rightMotor_.getCurPwm();
   feedback_.leftPwm = leftMotor_.getCurPwm();
   return feedback_;

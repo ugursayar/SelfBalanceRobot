@@ -6,6 +6,7 @@
 #include "BluetoothSerialPort.h"
 #include "CommandReader.h"
 #include "EepromByteStorage.h"
+#include "FeedbackPolicy.h"
 #include "MotorOutputLatch.h"
 #include "Motors.h"
 #include "ResetDiagnostics.h"
@@ -31,6 +32,7 @@ Sensors sensors;
 Motors motors;
 BalanceController balance;
 BalancePipeline balancePipeline;
+FeedbackPolicy feedbackPolicy;
 RobotState robotState;
 EepromByteStorage eepromStorage;
 BalancePointStore balancePointStore(eepromStorage,
@@ -124,6 +126,7 @@ void setup() {
   balance.setRateFilter(Config::BalanceRateFilterAlpha);
   balance.setOutputLimit(Config::MaxMotorCommand);
 
+  feedbackPolicy.configure(Config::FeedbackFullRefreshPeriodTicks);
   configureAutoArmAndLearning();
 
   robotState.configure(Config::FallAngleDegrees,
@@ -205,8 +208,17 @@ void loop() {
   readCommands(nowMillis);
 
   const SensorFrame& frame = sensors.update(nowMillis);
-  lastWheelFeedback = motors.updateFeedback();
-  runtimeStats.recordFeedbackRefresh(true);
+  FeedbackRequest feedbackRequest;
+  feedbackRequest.speedTargetCorrectionEnabled =
+      Config::WheelSpeedTargetCorrectionDegreesPerRpm != 0.0f ||
+      Config::MaxWheelSpeedTargetCorrectionDegrees != 0.0f;
+  feedbackRequest.speedDampingEnabled =
+      Config::WheelSpeedDampingCommandPerRpm != 0.0f;
+  feedbackRequest.forceFullRefresh = bluetoothTelemetryEnabled;
+  const MotorFeedbackMode feedbackMode =
+      feedbackPolicy.nextMode(feedbackRequest);
+  lastWheelFeedback = motors.updateFeedback(feedbackMode);
+  runtimeStats.recordFeedbackRefresh(feedbackMode == MotorFeedbackMode::Full);
 
   const RobotMode previousMode = robotState.mode();
   robotState.update(frame, command);
@@ -217,7 +229,7 @@ void loop() {
   const RobotMode currentMode = robotState.mode();
   if (previousMode != currentMode && currentMode == RobotMode::Balancing) {
     motors.resetTravel();
-    lastWheelFeedback = motors.updateFeedback();
+    lastWheelFeedback = motors.updateFeedback(MotorFeedbackMode::Full);
     runtimeStats.recordFeedbackRefresh(true);
     balance.reset();
     motorOutputLatch.reset();
@@ -465,6 +477,8 @@ bool applyParsedCommand(const ParsedCommand& parsed, Stream& reply) {
     reply.println(F("ok learn=off"));
     return false;
   case ParsedCommandAction::Status:
+    lastWheelFeedback = motors.updateFeedback(MotorFeedbackMode::Full);
+    runtimeStats.recordFeedbackRefresh(true);
     printStatus(reply, lastFrame);
     return false;
   case ParsedCommandAction::TelemetryOn:

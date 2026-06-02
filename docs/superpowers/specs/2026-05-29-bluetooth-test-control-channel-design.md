@@ -22,7 +22,7 @@ Restore Bluetooth as a cable-free test and tuning console only. The immediate pr
 
 ## Architecture
 
-Extract the current inline USB command parser into a shared parser module. The sketch will read complete lines from USB `Serial` plus Bluetooth `Serial3`, feed them to the same parser, then apply the parsed action through the existing sketch-owned components.
+Extract the current inline USB command parser into a shared parser module. The sketch will read complete lines from USB `Serial` plus Bluetooth `Serial3`, feed them to the same parser, then apply the parsed action through the existing sketch-owned components. Bluetooth test control uses MegaPi `Serial3` through `ROBOT_BLUETOOTH_SERIAL`; `Serial2` remains reserved for the RPi primary control link.
 
 Planned modules:
 
@@ -74,7 +74,7 @@ The manual balance-point set command writes the same persisted absolute angle th
 
 Command acknowledgements are written to the same port that issued the command. Important autonomous events, such as auto-arm and balance-point saves, continue to print to USB debug and should also print to Bluetooth when Bluetooth telemetry is enabled.
 
-`STATUS` should include the key fields needed for cable-free balance diagnosis: mode, angle, target, trim, active balance point, persisted/default status, rate, raw output, final balance output, wheel speed, wheel position, hold correction, motor outputs, and PID gains.
+`STATUS` should include the key fields needed for cable-free balance diagnosis: mode, angle, target, trim, active balance point, persisted/default status, reset cause, rate, raw output, final balance output, wheel speed, wheel position, hold correction, motor outputs, PID gains, loop work time, feedback refresh counts, motor output counts, and telemetry print time.
 
 ## Cable-Free Test Plan
 

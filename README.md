@@ -25,6 +25,10 @@ Start with the robot held securely. The sketch boots with motors disabled; balan
 
 Read `docs/bring-up.md` before enabling the motors on the floor. Start with the robot held securely and use `STOP` immediately if correction direction is wrong.
 
+## Performance Diagnostics
+
+The firmware includes runtime counters in `STATUS` for loop work time, missed balance-loop periods, encoder feedback refreshes, motor output writes, and telemetry print time. Use these counters before changing `BalanceLoopMicros`, PID math, encoder sign conventions, or motor output behavior.
+
 ## Design
 
 See the design spec in `docs/superpowers/specs/2026-05-16-makeblock-self-balancing-robot-design.md`.

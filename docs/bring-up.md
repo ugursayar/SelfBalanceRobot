@@ -28,6 +28,17 @@ Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `S
 Do not copy a `TRIM` offset into `BP SET`; persist the absolute target/balance-point angle reported by diagnostics.
 `STATUS` includes `reset=` and `resetRaw=`. Reset tokens are `por` (power-on), `ext` (reset pin), `bor` (brownout), `wdt` (watchdog), and `jtag`. If live PID settings return to the compiled default after motors wake, check these fields.
 
+`STATUS` also reports runtime loop counters:
+
+- `workUs`: work time for the most recent balance tick.
+- `maxWorkUs`: highest observed balance tick work time since boot.
+- `missed`: count of balance ticks whose interval exceeded `BalanceLoopMicros`.
+- `feedbackFull` / `feedbackLight`: encoder feedback refresh counts.
+- `motorWrites` / `motorStops`: hardware motor output calls.
+- `telemUs` / `maxTelemUs`: latest and peak telemetry formatting time.
+
+When tuning performance, collect one `STATUS` snapshot with debug telemetry off and one with telemetry on. Prefer changes that reduce `maxWorkUs` and keep `missed` stable at zero before considering a faster balance loop.
+
 Auto-arm is enabled by default. If EEPROM contains a valid learned balance point, or if the configured default balance point is close enough for the current build, the robot can enter balancing without a serial `ARM` when it is held nearly still near that angle. `STOP` still disarms immediately and starts a short auto-arm cooldown.
 
 ## First Checks

@@ -6,6 +6,7 @@
 #include "BluetoothSerialPort.h"
 #include "CommandReader.h"
 #include "EepromByteStorage.h"
+#include "MotorOutputLatch.h"
 #include "Motors.h"
 #include "ResetDiagnostics.h"
 #include "RobotState.h"
@@ -39,6 +40,7 @@ BalancePointLearner balancePointLearner;
 CommandReader usbCommandReader;
 CommandReader bluetoothCommandReader;
 RuntimeStats runtimeStats;
+MotorOutputLatch motorOutputLatch;
 
 unsigned long lastBalanceMicros = 0;
 unsigned long lastDebugMillis = 0;
@@ -218,6 +220,7 @@ void loop() {
     lastWheelFeedback = motors.updateFeedback();
     runtimeStats.recordFeedbackRefresh(true);
     balance.reset();
+    motorOutputLatch.reset();
     lastBalanceOutput = 0;
     balancingStartMillis = nowMillis;
     if (!balanceSessionUsesPersistedPoint) {
@@ -250,15 +253,21 @@ void loop() {
     updateBalancePointLearning(frame, pipelineOutput.baseTargetDegrees,
                                pipelineOutput.balanceOutput, nowMillis);
     lastMotorOutput = pipelineOutput.motorCommand;
-    motors.write(lastMotorOutput);
-    runtimeStats.recordMotorWrite();
+    if (motorOutputLatch.shouldWrite(lastMotorOutput)) {
+      motors.write(lastMotorOutput);
+      runtimeStats.recordMotorWrite();
+    }
   } else if (motorTestActive(nowMillis)) {
-    motors.write(lastMotorOutput);
-    runtimeStats.recordMotorWrite();
+    if (motorOutputLatch.shouldWrite(lastMotorOutput)) {
+      motors.write(lastMotorOutput);
+      runtimeStats.recordMotorWrite();
+    }
   } else {
     balance.reset();
-    motors.stop();
-    runtimeStats.recordMotorStop();
+    if (motorOutputLatch.shouldStop()) {
+      motors.stop();
+      runtimeStats.recordMotorStop();
+    }
     lastTargetAngle = robotState.uprightAngleDegrees();
     lastRawBalanceOutput = 0;
     lastBalanceOutput = 0;
@@ -477,8 +486,10 @@ void applyStopCommand(unsigned long nowMillis) {
   motorTestUntilMillis = 0;
   manualCommandSuppressedUntilMillis =
       nowMillis + Config::AutoArmStopCooldownMillis;
-  motors.stop();
-  runtimeStats.recordMotorStop();
+  if (motorOutputLatch.shouldStop()) {
+    motors.stop();
+    runtimeStats.recordMotorStop();
+  }
   lastMotorOutput = MotorCommand();
   lastRawBalanceOutput = 0;
   lastBalanceOutput = 0;

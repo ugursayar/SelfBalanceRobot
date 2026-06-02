@@ -8,6 +8,7 @@
 #include "Motors.h"
 #include "ResetDiagnostics.h"
 #include "RobotState.h"
+#include "RuntimeStats.h"
 #include "Sensors.h"
 #include "config.h"
 
@@ -35,6 +36,7 @@ AutoArmController autoArm;
 BalancePointLearner balancePointLearner;
 CommandReader usbCommandReader;
 CommandReader bluetoothCommandReader;
+RuntimeStats runtimeStats;
 
 unsigned long lastBalanceMicros = 0;
 unsigned long lastDebugMillis = 0;
@@ -197,6 +199,7 @@ void loop() {
   }
   lastBalanceMicros = nowMicros;
   lastLoopMicros = elapsedMicros;
+  const unsigned long workStartMicros = micros();
 
   const float dtSeconds = static_cast<float>(elapsedMicros) * 0.000001f;
   const unsigned long nowMillis = millis();
@@ -205,6 +208,7 @@ void loop() {
 
   const SensorFrame& frame = sensors.update(nowMillis);
   lastWheelFeedback = motors.updateFeedback();
+  runtimeStats.recordFeedbackRefresh(true);
 
   const RobotMode previousMode = robotState.mode();
   robotState.update(frame, command);
@@ -216,6 +220,7 @@ void loop() {
   if (previousMode != currentMode && currentMode == RobotMode::Balancing) {
     motors.resetTravel();
     lastWheelFeedback = motors.updateFeedback();
+    runtimeStats.recordFeedbackRefresh(true);
     balance.reset();
     lastBalanceOutput = 0;
     balancingStartMillis = nowMillis;
@@ -278,11 +283,14 @@ void loop() {
     lastMotorOutput.left = balanceOutput;
     lastMotorOutput.right = balanceOutput;
     motors.write(lastMotorOutput);
+    runtimeStats.recordMotorWrite();
   } else if (motorTestActive(nowMillis)) {
     motors.write(lastMotorOutput);
+    runtimeStats.recordMotorWrite();
   } else {
     balance.reset();
     motors.stop();
+    runtimeStats.recordMotorStop();
     lastTargetAngle = robotState.uprightAngleDegrees();
     lastRawBalanceOutput = 0;
     lastBalanceOutput = 0;
@@ -293,7 +301,14 @@ void loop() {
   lastFrame = frame;
   updateStatusLed(nowMillis);
   printModeChangeIfNeeded();
+  const unsigned long telemetryStartMicros = micros();
   printDebug(lastFrame);
+  const unsigned long telemetryMicros = micros() - telemetryStartMicros;
+  if (telemetryMicros > 0) {
+    runtimeStats.recordTelemetryPrint(telemetryMicros);
+  }
+  runtimeStats.recordBalanceTick(elapsedMicros, micros() - workStartMicros,
+                                 Config::BalanceLoopMicros);
 }
 
 void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm) {
@@ -495,6 +510,7 @@ void applyStopCommand(unsigned long nowMillis) {
   manualCommandSuppressedUntilMillis =
       nowMillis + Config::AutoArmStopCooldownMillis;
   motors.stop();
+  runtimeStats.recordMotorStop();
   lastMotorOutput = MotorCommand();
   lastRawBalanceOutput = 0;
   lastBalanceOutput = 0;
@@ -721,7 +737,28 @@ void printStatus(Stream& out, const SensorFrame& frame) {
   out.print(F(" ki="));
   out.print(currentKi);
   out.print(F(" kd="));
-  out.println(currentKd);
+  out.print(currentKd);
+  const RuntimeStatsSnapshot runtime = runtimeStats.snapshot();
+  out.print(F(" loopTicks="));
+  out.print(runtime.balanceTicks);
+  out.print(F(" workUs="));
+  out.print(runtime.lastWorkMicros);
+  out.print(F(" maxWorkUs="));
+  out.print(runtime.maxWorkMicros);
+  out.print(F(" missed="));
+  out.print(runtime.missedDeadlines);
+  out.print(F(" feedbackFull="));
+  out.print(runtime.fullFeedbackRefreshes);
+  out.print(F(" feedbackLight="));
+  out.print(runtime.lightFeedbackRefreshes);
+  out.print(F(" motorWrites="));
+  out.print(runtime.motorWrites);
+  out.print(F(" motorStops="));
+  out.print(runtime.motorStops);
+  out.print(F(" telemUs="));
+  out.print(runtime.lastTelemetryMicros);
+  out.print(F(" maxTelemUs="));
+  out.println(runtime.maxTelemetryMicros);
 }
 
 void printResetCause(Stream& out) {

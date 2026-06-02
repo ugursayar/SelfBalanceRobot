@@ -13,6 +13,7 @@
 #include "RobotState.h"
 #include "RuntimeStats.h"
 #include "Sensors.h"
+#include "TelemetryFormatter.h"
 #include "config.h"
 
 #include <MeMegaPi.h>
@@ -85,6 +86,7 @@ void setPersistedBalancePoint(float angleDegrees, Stream& reply,
 void configureAutoArmAndLearning();
 void printBalancePointStatus(bool loaded);
 void printBalancePointStatusTo(Stream& out);
+TelemetrySnapshot buildTelemetrySnapshot(const SensorFrame& frame);
 void handleAutoArm(const SensorFrame& frame, RobotMode modeBeforeAutoArm);
 bool motorTestActive(unsigned long nowMillis);
 bool manualCommandsSuppressed(unsigned long nowMillis);
@@ -97,9 +99,6 @@ void applyRuntimePid(float kp, float ki, float kd);
 void applyRuntimeTrim(float trimDegrees);
 bool startMotorTest(int16_t output, unsigned long nowMillis);
 void printStatus(Stream& out, const SensorFrame& frame);
-void printResetCause(Stream& out);
-void printResetFlag(Stream& out, bool present, const __FlashStringHelper* label,
-                    bool& hasPrinted);
 void printMode(Stream& out, RobotMode mode);
 void printModeChangeIfNeeded();
 void printDebug(const SensorFrame& frame);
@@ -609,101 +608,43 @@ bool startMotorTest(int16_t output, unsigned long nowMillis) {
   return true;
 }
 
+TelemetrySnapshot buildTelemetrySnapshot(const SensorFrame& frame) {
+  TelemetrySnapshot snapshot;
+  snapshot.mode = robotState.mode();
+  snapshot.loopMicros = lastLoopMicros;
+  snapshot.angleDegrees = frame.angleDegrees;
+  snapshot.uprightAngleDegrees = robotState.uprightAngleDegrees();
+  snapshot.targetAngleDegrees = lastTargetAngle;
+  snapshot.errorDegrees = balance.lastErrorDegrees();
+  snapshot.trimDegrees = currentTrimDegrees;
+  snapshot.activeBalancePointDegrees = activeBalancePointDegrees;
+  snapshot.storedBalancePoint = balancePointStore.hasStoredBalancePoint();
+  snapshot.resetRaw = resetCauseRaw;
+  snapshot.autoArmEnabled = runtimeAutoArmEnabled;
+  snapshot.autoAngleErrorDegrees = autoArm.angleErrorDegrees(frame);
+  snapshot.gyroFresh = frame.gyroFresh;
+  snapshot.gyroRateDegPerSec = frame.angleRateDegPerSec;
+  snapshot.filteredRateDegPerSec =
+      balance.lastMeasuredAngleRateDegreesPerSecond();
+  snapshot.rawBalanceOutput = lastRawBalanceOutput;
+  snapshot.balanceOutput = lastBalanceOutput;
+  snapshot.averageSpeedRpm = lastWheelFeedback.averageSpeedRpm;
+  snapshot.averagePositionDegrees = lastWheelFeedback.averagePositionDegrees;
+  snapshot.travelHoldTargetCorrectionDegrees =
+      lastTravelHoldTargetCorrection;
+  snapshot.leftMotor = lastMotorOutput.left;
+  snapshot.rightMotor = lastMotorOutput.right;
+  snapshot.leftPwm = lastWheelFeedback.leftPwm;
+  snapshot.rightPwm = lastWheelFeedback.rightPwm;
+  snapshot.kp = currentKp;
+  snapshot.ki = currentKi;
+  snapshot.kd = currentKd;
+  snapshot.runtime = runtimeStats.snapshot();
+  return snapshot;
+}
+
 void printStatus(Stream& out, const SensorFrame& frame) {
-  out.print(F("status mode="));
-  printMode(out, robotState.mode());
-  out.print(F(" angle="));
-  out.print(frame.angleDegrees);
-  out.print(F(" target="));
-  out.print(lastTargetAngle);
-  out.print(F(" trim="));
-  out.print(currentTrimDegrees);
-  out.print(F(" bp="));
-  out.print(activeBalancePointDegrees);
-  out.print(F(" stored="));
-  out.print(balancePointStore.hasStoredBalancePoint() ? F("yes") : F("no"));
-  out.print(F(" reset="));
-  printResetCause(out);
-  out.print(F(" resetRaw=0x"));
-  out.print(resetCauseRaw, HEX);
-  out.print(F(" auto="));
-  out.print(runtimeAutoArmEnabled ? F("on") : F("off"));
-  out.print(F(" autoErr="));
-  out.print(autoArm.angleErrorDegrees(frame));
-  out.print(F(" gyroFresh="));
-  out.print(frame.gyroFresh ? F("yes") : F("no"));
-  out.print(F(" gyroRate="));
-  out.print(frame.angleRateDegPerSec);
-  out.print(F(" rate="));
-  out.print(balance.lastMeasuredAngleRateDegreesPerSecond());
-  out.print(F(" raw="));
-  out.print(lastRawBalanceOutput);
-  out.print(F(" balance="));
-  out.print(lastBalanceOutput);
-  out.print(F(" speed="));
-  out.print(lastWheelFeedback.averageSpeedRpm);
-  out.print(F(" pos="));
-  out.print(lastWheelFeedback.averagePositionDegrees);
-  out.print(F(" hold="));
-  out.print(lastTravelHoldTargetCorrection);
-  out.print(F(" left="));
-  out.print(lastMotorOutput.left);
-  out.print(F(" right="));
-  out.print(lastMotorOutput.right);
-  out.print(F(" kp="));
-  out.print(currentKp);
-  out.print(F(" ki="));
-  out.print(currentKi);
-  out.print(F(" kd="));
-  out.print(currentKd);
-  const RuntimeStatsSnapshot runtime = runtimeStats.snapshot();
-  out.print(F(" loopTicks="));
-  out.print(runtime.balanceTicks);
-  out.print(F(" workUs="));
-  out.print(runtime.lastWorkMicros);
-  out.print(F(" maxWorkUs="));
-  out.print(runtime.maxWorkMicros);
-  out.print(F(" missed="));
-  out.print(runtime.missedDeadlines);
-  out.print(F(" feedbackFull="));
-  out.print(runtime.fullFeedbackRefreshes);
-  out.print(F(" feedbackLight="));
-  out.print(runtime.lightFeedbackRefreshes);
-  out.print(F(" motorWrites="));
-  out.print(runtime.motorWrites);
-  out.print(F(" motorStops="));
-  out.print(runtime.motorStops);
-  out.print(F(" telemUs="));
-  out.print(runtime.lastTelemetryMicros);
-  out.print(F(" maxTelemUs="));
-  out.println(runtime.maxTelemetryMicros);
-}
-
-void printResetCause(Stream& out) {
-  const ResetDiagnostics::ResetCauseFlags flags =
-      ResetDiagnostics::decode(resetCauseRaw);
-  bool hasPrinted = false;
-  printResetFlag(out, flags.powerOn, F("por"), hasPrinted);
-  printResetFlag(out, flags.external, F("ext"), hasPrinted);
-  printResetFlag(out, flags.brownOut, F("bor"), hasPrinted);
-  printResetFlag(out, flags.watchdog, F("wdt"), hasPrinted);
-  printResetFlag(out, flags.jtag, F("jtag"), hasPrinted);
-  printResetFlag(out, flags.unknown, F("unknown"), hasPrinted);
-  if (!hasPrinted) {
-    out.print(F("none"));
-  }
-}
-
-void printResetFlag(Stream& out, bool present, const __FlashStringHelper* label,
-                    bool& hasPrinted) {
-  if (!present) {
-    return;
-  }
-  if (hasPrinted) {
-    out.print(F(","));
-  }
-  out.print(label);
-  hasPrinted = true;
+  TelemetryFormatter::printStatus(out, buildTelemetrySnapshot(frame));
 }
 
 void printMode(Stream& out, RobotMode mode) {
@@ -758,69 +699,12 @@ void printDebug(const SensorFrame& frame) {
 }
 
 void printDebugTo(Stream& out, const SensorFrame& frame) {
-  out.print(F("mode="));
-  printMode(out, robotState.mode());
-  out.print(F(" loopUs="));
-  out.print(lastLoopMicros);
-  out.print(F(" angle="));
-  out.print(frame.angleDegrees);
-  out.print(F(" upright="));
-  out.print(robotState.uprightAngleDegrees());
-  out.print(F(" trim="));
-  out.print(currentTrimDegrees);
-  out.print(F(" target="));
-  out.print(lastTargetAngle);
-  out.print(F(" err="));
-  out.print(balance.lastErrorDegrees());
-  out.print(F(" rate="));
-  out.print(balance.lastMeasuredAngleRateDegreesPerSecond());
-  out.print(F(" raw="));
-  out.print(lastRawBalanceOutput);
-  out.print(F(" balance="));
-  out.print(lastBalanceOutput);
-  out.print(F(" speed="));
-  out.print(lastWheelFeedback.averageSpeedRpm);
-  out.print(F(" pos="));
-  out.print(lastWheelFeedback.averagePositionDegrees);
-  out.print(F(" hold="));
-  out.print(lastTravelHoldTargetCorrection);
-  out.print(F(" left="));
-  out.print(lastMotorOutput.left);
-  out.print(F(" right="));
-  out.print(lastMotorOutput.right);
-  out.print(F(" lpwm="));
-  out.print(lastWheelFeedback.leftPwm);
-  out.print(F(" rpwm="));
-  out.print(lastWheelFeedback.rightPwm);
-  out.print(F(" kp="));
-  out.print(currentKp);
-  out.print(F(" kd="));
-  out.println(currentKd);
+  TelemetryFormatter::printDebug(out, buildTelemetrySnapshot(frame));
 }
 
 void printBluetoothTelemetryTo(Stream& out, const SensorFrame& frame) {
-  out.print(F("telem mode="));
-  printMode(out, robotState.mode());
-  out.print(F(" angle="));
-  out.print(frame.angleDegrees);
-  out.print(F(" target="));
-  out.print(lastTargetAngle);
-  out.print(F(" auto="));
-  out.print(runtimeAutoArmEnabled ? F("on") : F("off"));
-  out.print(F(" autoErr="));
-  out.print(autoArm.angleErrorDegrees(frame));
-  out.print(F(" gyroFresh="));
-  out.print(frame.gyroFresh ? F("yes") : F("no"));
-  out.print(F(" gyroRate="));
-  out.print(frame.angleRateDegPerSec);
-  out.print(F(" rate="));
-  out.print(balance.lastMeasuredAngleRateDegreesPerSecond());
-  out.print(F(" balance="));
-  out.print(lastBalanceOutput);
-  out.print(F(" left="));
-  out.print(lastMotorOutput.left);
-  out.print(F(" right="));
-  out.println(lastMotorOutput.right);
+  TelemetryFormatter::printBluetoothTelemetry(out,
+                                              buildTelemetrySnapshot(frame));
 }
 
 void updateStatusLed(unsigned long nowMillis) {

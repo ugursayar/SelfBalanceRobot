@@ -4,9 +4,9 @@ CXXFLAGS ?= -std=gnu++11 -Wall -Wextra -Werror
 ROOT := ../..
 BUILD_DIR := build
 
-.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline test_motor_output_latch test_feedback_policy clean
+.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline test_motor_output_latch test_feedback_policy test_telemetry_formatter clean
 
-all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline test_motor_output_latch test_feedback_policy
+all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline test_motor_output_latch test_feedback_policy test_telemetry_formatter
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -106,6 +106,12 @@ $(BUILD_DIR)/test_sensors: test_sensors.cpp $(ROOT)/SelfBalanceRobot/Sensors.cpp
 
 test_sensors: $(BUILD_DIR)/test_sensors
 	./$(BUILD_DIR)/test_sensors
+
+$(BUILD_DIR)/test_telemetry_formatter: test_telemetry_formatter.cpp $(ROOT)/SelfBalanceRobot/TelemetryFormatter.h $(ROOT)/SelfBalanceRobot/RuntimeStats.h $(ROOT)/SelfBalanceRobot/ResetDiagnostics.cpp $(ROOT)/SelfBalanceRobot/ResetDiagnostics.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_telemetry_formatter.cpp $(ROOT)/SelfBalanceRobot/ResetDiagnostics.cpp -o $@
+
+test_telemetry_formatter: $(BUILD_DIR)/test_telemetry_formatter
+	./$(BUILD_DIR)/test_telemetry_formatter
 
 clean:
 	rm -rf $(BUILD_DIR)

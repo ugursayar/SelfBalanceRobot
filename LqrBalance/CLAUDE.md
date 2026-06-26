@@ -63,8 +63,12 @@ for calibration is fine, but remove it).
   `setMotorPwm` is a direct register write each tick, there is **no internal motor
   "session"/PID** (we never call `runSpeed`/`move`/`loop`). So an abrupt
   hard-drive→coast or +→− jump in one 5 ms tick is felt as "braking" and pumps a
-  limit cycle; the slew limit caps per-tick command change. `gAppliedPwm` resets
-  to 0 at each arm.
+  limit cycle; the slew limit caps per-tick command change (this is the big
+  no-wobble win). `gAppliedPwm` resets to 0 at each arm. It's **magnitude-aware**:
+  `kMaxPwmStepPerTick` for small commands, ramping to `kMaxPwmStepFast` for large.
+  But a fast big-command ramp **rings up / drives away on hard pushes** (backlash),
+  so both are currently set equal (30, uniform) — firm hard-push recovery vs.
+  calm is a hard trade on this drivetrain, and calm won.
 - **All shaping is neutralizable to bare `u = K·x`.** Setting the gain schedule
   to 1.0, deadbands/alphas to 0, and slew/clamp high runs a pure linear LQR; the
   best balancing runs so far have been at or near that pure config.

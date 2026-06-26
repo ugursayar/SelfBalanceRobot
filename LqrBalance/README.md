@@ -65,7 +65,7 @@ change one at a time, re-flash, observe.
 | `kTiltRateFilterAlpha` | low-pass on the gyro rate before the damping term (0 = raw; tames the near-balance ± dither) |
 | `kWheelVelFilterAlpha` | low-pass on the finite-differenced wheel velocity (0 = raw; tames encoder quantization noise) |
 | `kCoastDeadbandPwm` | commands below this coast (0) instead of kicking — smooth settle through balance (0 = off) |
-| `kMaxPwmStepPerTick` | slew-rate limit (max command change per tick); smooths abrupt drive→coast/reverse jumps (≥ 2·`kMaxPwm` = off) |
+| `kMaxPwmStepPerTick`, `kMaxPwmStepFast` | magnitude-aware slew-rate limit — small commands ramp at `kMaxPwmStepPerTick` (smooths the stepping wobble: the big no-wobble win), large commands up to `kMaxPwmStepFast`. **Currently both 30 (uniform):** a fast big-command ramp rang up / drove away on hard pushes |
 | `kWheelTermClampPwm` | bounds the combined wheel-term contribution — safety against a hot/wrong-signed wheel gain |
 | `kMaxPwm` | output ceiling (out of 255 full duty) — caps recovery authority |
 | `kPowerMin`, `kPowerFullDeg` | **curved power** — output scaled to `kPowerMin` of full for small corrections, ramping (quadratic) to full power by `kPowerFullDeg` of lean: gentle near balance, full authority for big leans. Lower `kPowerMin` at higher battery charge (see note) |

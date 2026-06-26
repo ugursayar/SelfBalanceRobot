@@ -92,13 +92,13 @@ static const float kK_tiltRate = 1.50f;    // best run (hand-tuned)
 // the way the wheels are already turning (adds virtual friction -> stabilizing).
 // BENCH CHECK: spin a wheel by hand while balancing; the bot should resist, not
 // run away.  If it runs away, flip this sign.
-static const float kK_wheelVel = 0.40f;    // best run; POSITIVE on this bot (velocity damping)
+static const float kK_wheelVel = 0.40f;    // POSITIVE velocity damping; 0.40 best (0.60 reintroduced small-correction wobble)
 // Wheel position (deg from arm point): station-keeping.  NEGATIVE so a forward
 // displacement commands a return toward the origin (cart-pole result: drive the
 // base back, let it lean, catch it).  This is the touchiest gain.
 // BENCH CHECK: nudge the balanced bot forward; it should creep back to where it
 // started.  If it accelerates away, flip this sign.  Start near 0 and raise.
-static const float kK_wheelPos = 0.0f;     // best run: station-keeping OFF (rings up on this bot; drive-away is the ceiling)
+static const float kK_wheelPos = 0.0f;     // station-keeping OFF: rings up even WITH the slew limiter — confirmed not viable on this bot
 
 // Near-upright softening of the tilt (proportional) term.  LQR is linear, so
 // without this it hits tiny tilt errors with the full kK_tilt and the resulting
@@ -116,7 +116,7 @@ static const float kWheelTermClampPwm = 255.0f; // effectively OFF (pure best ru
 
 // Light low-pass on the finite-differenced wheel velocity to tame encoder
 // quantization (0 = raw, ->1 = heavier smoothing).
-static const float kWheelVelFilterAlpha = 0.0f;  // 0 = raw (pure LQR; expect quantization noise)
+static const float kWheelVelFilterAlpha = 0.0f;  // raw (filtering it added lag -> wobble when kK_wheelVel was raised)
 
 // Light low-pass on the gyro tilt rate before it feeds the kK_tiltRate (damping)
 // term.  Without it, raw gyro noise rides into the rate term and dithers the
@@ -134,7 +134,7 @@ static const int16_t kMaxPwm = 255;        // motor command ceiling
 // ~full battery; it still scales with pack voltage, so battery-voltage
 // compensation (scaling kPowerMin by Vnominal/Vmeasured) is the eventual fix.
 static const float kPowerMin = 0.30f;       // power fraction for small corrections
-static const float kPowerFullDeg = 10.0f;   // tilt error (deg) at/above which full power applies
+static const float kPowerFullDeg = 7.0f;    // tilt error (deg) at/above which full power applies
 // Below this magnitude the motor is left to COAST (command 0) instead of being
 // forced up to a minimum kick.  Forcing a floor here made the command snap to
 // +/-min and flip sign as the robot settled through balance -- a reverse kick
@@ -149,7 +149,14 @@ static const int16_t kCoastDeadbandPwm = 0;   // OFF for pure LQR (no coast zone
 // also attenuates high-frequency limit cycles.  Lower = smoother/gentler but
 // slower recovery; set it >= kMaxPwm to disable.  At 20, the command ramps to
 // full drive (100) in ~25 ms.
-static const int16_t kMaxPwmStepPerTick = 512; // >= 2*kMaxPwm = OFF (no slew limit) for pure LQR
+// Magnitude-aware slew: the per-tick command-change limit scales from
+// kMaxPwmStepPerTick (SMALL commands -> smooth, kills the stepping wobble) up to
+// kMaxPwmStepFast (LARGE commands -> ramp fast so a hard-push recovery isn't
+// rate-limited).  Raise kMaxPwmStepFast for firmer hard pushes (toward kMaxPwm
+// = effectively no limit for big commands); raise kMaxPwmStepPerTick only if you
+// can tolerate more small-signal stepping.
+static const int16_t kMaxPwmStepPerTick = 30;  // slew step for SMALL commands (smoothing)
+static const int16_t kMaxPwmStepFast = 30;     // = kMaxPwmStepPerTick: fast ramp REMOVED, all commands slew at the smooth rate (firm hard-push ramp rang/drove away on this backlash-y drivetrain)
 
 // --- Arm / safety ----------------------------------------------------------
 static const float kArmWindowDeg = 4.0f;    // engage when within this of center
@@ -426,14 +433,18 @@ void loop() {
   u = clampF(u, static_cast<float>(kMaxPwm));
   const int16_t target = static_cast<int16_t>(u);
 
-  // Slew-rate limit: step the applied command toward the target by at most
-  // kMaxPwmStepPerTick, so the drive can't jump hard-drive -> coast or
-  // forward -> reverse in one tick (the abrupt "braking" feel that builds wobble).
+  // Slew-rate limit (magnitude-aware): small commands ramp slowly (smooth, no
+  // stepping wobble); large commands (hard-push recovery) ramp fast.  The limit
+  // scales with |target| from kMaxPwmStepPerTick up to kMaxPwmStepFast.
+  const int16_t at = target < 0 ? static_cast<int16_t>(-target) : target;
+  const int16_t slewLimit = static_cast<int16_t>(
+      kMaxPwmStepPerTick + (kMaxPwmStepFast - kMaxPwmStepPerTick) *
+                               (static_cast<float>(at) / static_cast<float>(kMaxPwm)));
   int16_t step = static_cast<int16_t>(target - gAppliedPwm);
-  if (step > kMaxPwmStepPerTick) {
-    step = kMaxPwmStepPerTick;
-  } else if (step < -kMaxPwmStepPerTick) {
-    step = static_cast<int16_t>(-kMaxPwmStepPerTick);
+  if (step > slewLimit) {
+    step = slewLimit;
+  } else if (step < -slewLimit) {
+    step = static_cast<int16_t>(-slewLimit);
   }
   gAppliedPwm = static_cast<int16_t>(gAppliedPwm + step);
 

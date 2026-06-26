@@ -126,6 +126,12 @@ static const float kTiltRateFilterAlpha = 0.0f;  // raw (validated-best/pure con
 
 // --- Output shaping --------------------------------------------------------
 static const int16_t kMaxPwm = 255;        // motor command ceiling
+// Master output scale ("power" dial).  Motor torque per PWM count scales with
+// BATTERY VOLTAGE, so the effective loop gain RISES as the pack charges -- a
+// config tuned on a near-empty battery is over-driven on a full one.  Lower this
+// to take power out at full charge.  (Proper fix: battery-voltage compensation --
+// set this to Vnominal/Vmeasured each loop once a battery-voltage reading exists.)
+static const float kPowerScale = 0.45f;  // 0.45 = FIRST STABLE BALANCE (stays still) at ~FULL battery; raise as the pack drains, or use voltage comp
 // Below this magnitude the motor is left to COAST (command 0) instead of being
 // forced up to a minimum kick.  Forcing a floor here made the command snap to
 // +/-min and flip sign as the robot settled through balance -- a reverse kick
@@ -405,6 +411,7 @@ void loop() {
                                         (kK_wheelVel * gWheelVelFiltDegPerSec),
                                     kWheelTermClampPwm);
   float u = tiltCommand + wheelCommand;
+  u *= kPowerScale;  // master power dial: detune for full battery (placeholder for voltage comp)
 
   // ---- Output shaping: clamp -> slew-limit -> coast through tiny commands --
   u = clampF(u, static_cast<float>(kMaxPwm));

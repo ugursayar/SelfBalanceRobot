@@ -68,6 +68,7 @@ change one at a time, re-flash, observe.
 | `kMaxPwmStepPerTick` | slew-rate limit (max command change per tick); smooths abrupt drive→coast/reverse jumps (≥ 2·`kMaxPwm` = off) |
 | `kWheelTermClampPwm` | bounds the combined wheel-term contribution — safety against a hot/wrong-signed wheel gain |
 | `kMaxPwm` | output ceiling (out of 255 full duty) — caps recovery authority |
+| `kPowerScale` | master output multiplier ("power" dial) — **lower it at higher battery charge** (effective gain rises with pack voltage; see note below) |
 | `kBalancePointDeg` | fallback balance tilt; the live reference is latched from the tilt at power-up and the setpoint is captured at arm |
 | `kArmWindowDeg`, `kArmMaxRateDegPerSec` | how close to upright / how steady before it arms |
 | `kFallAngleDeg` | disarm threshold |
@@ -81,6 +82,15 @@ recoverable. **Station-keeping is the hard part on this robot:** the position
 term (`kK_wheelPos`) tends to ring up, so the most stable runs have used velocity
 damping with little or no position term (drive-away then becomes the ceiling).
 See [CLAUDE.md](CLAUDE.md) and theory.md for the model-derived `K` path.
+
+**Battery voltage is a hidden gain.** Motor torque per PWM count scales with pack
+voltage, so the *effective* loop gain rises as the battery charges — the same
+config feels calm on a near-empty pack and over-driven ("too strong", more
+wobble) on a full one. `kPowerScale` is the manual compensation: lower it at full
+charge. The proper fix is to read pack voltage (e.g. the Waveshare UPS 3S over
+I²C, its own address on the gyro's I²C bus) and set `kPowerScale = Vnominal /
+Vmeasured` live, so behavior is constant at any charge — not yet wired. Until
+then, tune at a known, consistent charge level.
 
 No telemetry ships in this sketch by design; tuning is by observation and the
 LED. To find the exact balance-point angle, temporarily add a serial print of

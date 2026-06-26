@@ -126,12 +126,15 @@ static const float kTiltRateFilterAlpha = 0.0f;  // raw (validated-best/pure con
 
 // --- Output shaping --------------------------------------------------------
 static const int16_t kMaxPwm = 255;        // motor command ceiling
-// Master output scale ("power" dial).  Motor torque per PWM count scales with
-// BATTERY VOLTAGE, so the effective loop gain RISES as the pack charges -- a
-// config tuned on a near-empty battery is over-driven on a full one.  Lower this
-// to take power out at full charge.  (Proper fix: battery-voltage compensation --
-// set this to Vnominal/Vmeasured each loop once a battery-voltage reading exists.)
-static const float kPowerScale = 0.45f;  // 0.45 = FIRST STABLE BALANCE (stays still) at ~FULL battery; raise as the pack drains, or use voltage comp
+// Curved power: the output is scaled by a CURVE on tilt-error magnitude -- small
+// corrections (near balance) get only kPowerMin of full power, ramping
+// quadratically up to FULL power by kPowerFullDeg of lean.  So micro-corrections
+// stay gentle (the calm, stays-still behavior) while a real lean gets full
+// authority.  kPowerMin = 0.45 is the small-signal scale that first balanced at
+// ~full battery; it still scales with pack voltage, so battery-voltage
+// compensation (scaling kPowerMin by Vnominal/Vmeasured) is the eventual fix.
+static const float kPowerMin = 0.30f;       // power fraction for small corrections
+static const float kPowerFullDeg = 10.0f;   // tilt error (deg) at/above which full power applies
 // Below this magnitude the motor is left to COAST (command 0) instead of being
 // forced up to a minimum kick.  Forcing a floor here made the command snap to
 // +/-min and flip sign as the robot settled through balance -- a reverse kick
@@ -411,7 +414,13 @@ void loop() {
                                         (kK_wheelVel * gWheelVelFiltDegPerSec),
                                     kWheelTermClampPwm);
   float u = tiltCommand + wheelCommand;
-  u *= kPowerScale;  // master power dial: detune for full battery (placeholder for voltage comp)
+  // Curved power: gentle (kPowerMin) for small corrections, ramping quadratically
+  // to full power by kPowerFullDeg of lean -- full authority only when needed.
+  {
+    const float a = fabsFast(tiltErr);
+    const float t = a >= kPowerFullDeg ? 1.0f : a / kPowerFullDeg;
+    u *= kPowerMin + (1.0f - kPowerMin) * (t * t);
+  }
 
   // ---- Output shaping: clamp -> slew-limit -> coast through tiny commands --
   u = clampF(u, static_cast<float>(kMaxPwm));

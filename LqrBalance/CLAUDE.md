@@ -39,15 +39,17 @@ for calibration is fine, but remove it).
   velocity damping with `kK_wheelPos = 0` and accept slow drive-away. Treat
   station-keeping as a mechanical (backlash) problem, not a gain one. The
   `kWheelTermClampPwm` clamp + fall cutoff bound a wrong/hot wheel gain.
-- **Battery voltage scales the effective gain (big one).** Motor torque per PWM
-  count is proportional to pack voltage, and there is no compensation, so the
-  *effective* loop gain rises as the battery charges — a config tuned on a
-  near-empty pack is over-driven when full. This was the hidden variable behind
-  much of the session's "too strong"/inconsistent behavior (the best run was on a
-  near-empty battery). `kPowerScale` is a manual master-output multiplier to
-  detune for charge; the real fix is `kPowerScale = Vnominal / Vmeasured` from a
-  live voltage read (planned: Waveshare UPS 3S over I²C, its own address on the
-  gyro's I²C bus). Until that's wired, tune at a consistent charge level.
+- **Battery voltage scales the effective gain (big one), handled by curved power.**
+  Motor torque per PWM count is proportional to pack voltage, with no
+  compensation, so the *effective* loop gain rises as the battery charges — a
+  config tuned near-empty is over-driven when full. This was the hidden variable
+  behind much of the session's "too strong"/inconsistent behavior. The fix is
+  **curved power**: `kPowerMin` is the small-correction power fraction (the calm
+  near-balance behavior), ramping quadratically to full power by `kPowerFullDeg`
+  of lean — small corrections gentle, big leans full authority. `kPowerMin` still
+  scales with pack voltage; the eventual fix is `kPowerMin = base ·
+  Vnominal/Vmeasured` from a live read (Waveshare UPS 3S over I²C). Until wired,
+  tune at a consistent charge level.
 - **Coast deadband, not a min-PWM floor.** Forcing small commands up to a
   minimum made the command flip sign and reverse-kick as the robot settled
   through balance (felt like braking, set up a wobble). Coasting small commands

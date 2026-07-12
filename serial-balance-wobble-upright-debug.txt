@@ -1,0 +1,26 @@
+TX 16:52:58.941 stop
+TX 16:52:59.522 auto off
+TX 16:53:00.081 telem off
+TX 16:53:03.952 status
+TX 16:53:05.128 status
+TX 16:53:06.298 status
+TX 16:53:07.465 status
+TX 16:53:08.634 status
+TX 16:53:09.806 status
+TX 16:53:10.980 status
+TX 16:53:12.146 status
+TX 16:53:13.313 status
+TX 16:53:14.480 status
+TX 16:53:15.649 status
+TX 16:53:16.815 status
+TX 16:53:17.985 status
+TX 16:53:19.155 status
+TX 16:53:20.320 status
+TX 16:53:21.489 status
+TX 16:53:22.672 status
+TX 16:53:23.844 status
+TX 16:53:25.023 status
+TX 16:53:26.196 status
+TX 16:53:27.375 status
+TX 16:53:28.542 status
+INFO never reached startup angle window; lastAngle=

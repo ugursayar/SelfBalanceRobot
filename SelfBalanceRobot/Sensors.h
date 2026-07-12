@@ -16,11 +16,10 @@ public:
 
 private:
   float readBalanceAngle() const;
+  float readBalanceAngleRate() const;
 
   MeGyro gyro_;
   SensorFrame frame_;
-  float lastAngleDegrees_;
-  bool hasLastAngle_;
 };
 
 #endif

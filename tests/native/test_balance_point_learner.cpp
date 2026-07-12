@@ -82,6 +82,20 @@ static void test_saves_smoothed_point_after_stable_window() {
   assert(result.balancePointDegrees == 0.25f);
 }
 
+static void test_learns_toward_measured_angle_not_target() {
+  // The robot rests at 0.5deg while the commanded target is 0.0deg (within the
+  // 1deg stability window).  Learning must converge toward the measured resting
+  // angle, not the target, otherwise the stored point can never be refined.
+  BalancePointLearner learner = configured();
+
+  assert(!learner.update(frame(0.5f, 0.0f, 1200), 0.0f, 10, 1200).shouldSave);
+  BalanceLearningResult result =
+      learner.update(frame(0.5f, 0.0f, 1700), 0.0f, 10, 1700);
+
+  assert(result.shouldSave);
+  assert(result.balancePointDegrees == 0.125f);  // 0 + 0.25 * (0.5 - 0)
+}
+
 static void test_negative_alpha_clamps_to_stored_point() {
   BalancePointLearner learner;
   learner.configure(0, 0, 0, 1.0f, 5.0f, 40, -0.5f);
@@ -184,6 +198,7 @@ int main() {
   test_negative_thresholds_are_treated_as_magnitudes();
   test_rejects_stale_gyro();
   test_saves_smoothed_point_after_stable_window();
+  test_learns_toward_measured_angle_not_target();
   test_negative_alpha_clamps_to_stored_point();
   test_alpha_above_one_clamps_to_active_point();
   test_min_write_interval_prevents_repeated_writes();

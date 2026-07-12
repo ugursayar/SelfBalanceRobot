@@ -10,10 +10,18 @@ enum class RobotMode : uint8_t {
   Fault
 };
 
+enum class StopReason : uint8_t {
+  None,
+  Command,
+  SafetyCutoff,
+  FallFault,
+  GyroFault,
+  CalibrationFault
+};
+
 struct SensorFrame {
   float angleDegrees = 0.0f;
-  // Raw gyro rate for the balance axis (deg/s). MeGyro integrates gyrY into
-  // getAngleX, so getGyroY() is the correct rate source for BalanceGyroAxis::X.
+  // Signed gyro rate for the configured balance axis (deg/s).
   float angleRateDegPerSec = 0.0f;
   bool gyroFresh = false;
   unsigned long nowMillis = 0;

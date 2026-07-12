@@ -1,0 +1,62 @@
+TX 16:52:04.893 stop
+RX 16:52:04.930 ok stop
+TX 16:52:05.495 auto off
+RX 16:52:05.508 ok auto=off
+TX 16:52:06.074 telem off
+RX 16:52:06.088 ok telem=off
+TX 16:52:06.652 status
+RX 16:52:06.691 status mode=disarmed angle=-51.90 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.32 gyroFresh=yes gyroRate=-0.06 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=351 workUs=3164 maxWorkUs=3356 missed=0 feedbackFull=352 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=8
+TX 16:52:10.937 arm
+RX 16:52:10.949 ok arm
+TX 16:52:11.798 status
+RX 16:52:11.843 status mode=calibrating angle=-51.92 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.35 gyroFresh=yes gyroRate=0.06 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=864 workUs=3048 maxWorkUs=32920 missed=2 feedbackFull=866 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=8
+TX 16:52:12.315 status
+RX 16:52:12.356 status mode=fault angle=-51.92 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.34 gyroFresh=yes gyroRate=0.00 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=913 workUs=3004 maxWorkUs=33408 missed=4 feedbackFull=916 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:12.817 status
+RX 16:52:12.860 status mode=fault angle=-51.93 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=-0.14 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=961 workUs=3048 maxWorkUs=33408 missed=6 feedbackFull=965 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:13.318 status
+RX 16:52:13.363 status mode=fault angle=-51.93 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.35 gyroFresh=yes gyroRate=-0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1009 workUs=3120 maxWorkUs=33408 missed=8 feedbackFull=1014 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:13.849 status
+RX 16:52:13.896 status mode=fault angle=-51.93 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=-0.02 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1060 workUs=3208 maxWorkUs=33436 missed=10 feedbackFull=1066 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:14.363 status
+RX 16:52:14.410 status mode=fault angle=-51.94 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=0.06 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1109 workUs=3236 maxWorkUs=33464 missed=12 feedbackFull=1116 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:14.878 status
+RX 16:52:14.923 status mode=fault angle=-51.92 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.34 gyroFresh=yes gyroRate=-0.05 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1158 workUs=3196 maxWorkUs=33464 missed=14 feedbackFull=1166 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:15.392 status
+RX 16:52:15.436 status mode=fault angle=-51.90 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.33 gyroFresh=yes gyroRate=0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1207 workUs=3040 maxWorkUs=33464 missed=16 feedbackFull=1216 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:15.910 status
+RX 16:52:15.960 status mode=fault angle=-51.91 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.33 gyroFresh=yes gyroRate=0.05 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1257 workUs=3076 maxWorkUs=33464 missed=18 feedbackFull=1267 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:16.427 status
+RX 16:52:16.473 status mode=fault angle=-51.92 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.34 gyroFresh=yes gyroRate=0.00 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1306 workUs=3056 maxWorkUs=33464 missed=20 feedbackFull=1317 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:16.939 status
+RX 16:52:16.986 status mode=fault angle=-51.92 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.34 gyroFresh=yes gyroRate=0.05 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1355 workUs=3104 maxWorkUs=33464 missed=22 feedbackFull=1367 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:17.459 status
+RX 16:52:17.499 status mode=fault angle=-51.94 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.37 gyroFresh=yes gyroRate=0.00 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1404 workUs=2968 maxWorkUs=33464 missed=24 feedbackFull=1417 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:17.970 status
+RX 16:52:18.013 status mode=fault angle=-51.93 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.35 gyroFresh=yes gyroRate=0.11 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1453 workUs=3200 maxWorkUs=33464 missed=26 feedbackFull=1467 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:18.467 status
+RX 16:52:18.516 status mode=fault angle=-51.94 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=-0.09 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1501 workUs=3168 maxWorkUs=33464 missed=28 feedbackFull=1516 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:18.983 status
+RX 16:52:19.029 status mode=fault angle=-51.94 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=-0.08 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1550 workUs=3108 maxWorkUs=33464 missed=30 feedbackFull=1566 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:19.497 status
+RX 16:52:19.542 status mode=fault angle=-51.94 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=-0.12 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1599 workUs=3080 maxWorkUs=33464 missed=32 feedbackFull=1616 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:20.011 status
+RX 16:52:20.056 status mode=fault angle=-51.94 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1648 workUs=3036 maxWorkUs=33464 missed=34 feedbackFull=1666 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:20.528 status
+RX 16:52:20.569 status mode=fault angle=-51.93 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.35 gyroFresh=yes gyroRate=0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1697 workUs=3112 maxWorkUs=33464 missed=36 feedbackFull=1716 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:21.029 status
+RX 16:52:21.072 status mode=fault angle=-51.93 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=0.05 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1745 workUs=3188 maxWorkUs=33464 missed=38 feedbackFull=1765 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:21.529 status
+RX 16:52:21.575 status mode=fault angle=-51.93 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.35 gyroFresh=yes gyroRate=0.02 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1793 workUs=3128 maxWorkUs=33464 missed=40 feedbackFull=1814 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:22.043 status
+RX 16:52:22.089 status mode=fault angle=-51.92 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.35 gyroFresh=yes gyroRate=0.06 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1842 workUs=3244 maxWorkUs=33464 missed=42 feedbackFull=1864 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:22.554 status
+RX 16:52:22.602 status mode=fault angle=-51.92 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.34 gyroFresh=yes gyroRate=-0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1891 workUs=3120 maxWorkUs=33464 missed=44 feedbackFull=1914 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:23.068 status
+RX 16:52:23.115 status mode=fault angle=-51.94 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.36 gyroFresh=yes gyroRate=0.00 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1940 workUs=3176 maxWorkUs=33504 missed=46 feedbackFull=1964 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:23.583 status
+RX 16:52:23.629 status mode=fault angle=-51.93 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.35 gyroFresh=yes gyroRate=-0.06 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=calibration reset=none resetRaw=0x00 ki=0.00 loopTicks=1989 workUs=3124 maxWorkUs=33504 missed=48 feedbackFull=2014 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX 16:52:23.910 stop
+RX 16:52:23.917 ok stop
+TX 16:52:24.660 status
+RX 16:52:24.702 status mode=disarmed angle=-51.91 upright=0.00 trim=-2.30 target=0.00 bp=-5.58 auto=off autoErr=-46.33 gyroFresh=yes gyroRate=0.02 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=2094 workUs=3116 maxWorkUs=33504 missed=50 feedbackFull=2120 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12

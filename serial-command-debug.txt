@@ -1,0 +1,7 @@
+TX 16:36:03.673 stop
+TX 16:36:04.657 STOP
+TX 16:36:05.590 status
+TX 16:36:06.530 STATUS
+TX 16:36:07.468 auto off
+TX 16:36:08.399 telem off
+TX 16:36:09.333 status

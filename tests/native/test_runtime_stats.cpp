@@ -23,7 +23,19 @@ static void test_records_loop_work_and_peak() {
   assert(snap.lastLoopIntervalMicros == 11000);
   assert(snap.lastWorkMicros == 7000);
   assert(snap.maxWorkMicros == 7000);
+  assert(snap.missedDeadlines == 0);
+
+  stats.recordBalanceTick(20000, 6000, 10000);
+  snap = stats.snapshot();
+
+  assert(snap.balanceTicks == 3);
   assert(snap.missedDeadlines == 1);
+
+  stats.recordBalanceTick(35000, 6000, 10000);
+  snap = stats.snapshot();
+
+  assert(snap.balanceTicks == 4);
+  assert(snap.missedDeadlines == 3);
 }
 
 static void test_records_subsystem_counts() {
@@ -50,7 +62,7 @@ static void test_records_subsystem_counts() {
 static void test_peak_reset_keeps_cumulative_counts() {
   RuntimeStats stats;
 
-  stats.recordBalanceTick(12000, 9000, 10000);
+  stats.recordBalanceTick(20000, 9000, 10000);
   stats.recordTelemetryPrint(600);
   stats.resetPeaks();
 

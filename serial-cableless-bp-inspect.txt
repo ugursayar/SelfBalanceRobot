@@ -1,0 +1,10 @@
+TX stop
+RX ok stop
+TX auto off
+RX ok auto=off
+TX learn off
+RX ok learn=off
+TX bp?
+RX balance-point active=0.70 store=0.70 stored=yes writes=10
+TX status
+RX status mode=disarmed angle=-52.01 upright=0.00 trim=0.00 target=0.00 bp=0.70 auto=off autoErr=-52.71 gyroFresh=yes gyroRate=0.06 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=28.00 stored=yes stopReason=command reset=por,ext,wdt,jtag resetRaw=0x1B ki=0.00 loopTicks=439 workUs=3012 maxWorkUs=4364 missed=0 feedbackFull=89 feedbackLight=351 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=4

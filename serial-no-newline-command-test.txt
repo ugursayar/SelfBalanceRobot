@@ -1,0 +1,8 @@
+TX 16:38:58.127 STOP(no newline)
+RX 16:38:58.162 ok stop
+TX 16:38:59.437 STATUS(no newline)
+RX 16:38:59.481 status mode=disarmed angle=-51.08 upright=0.00 trim=-2.30 target=0.00 bp=0.80 auto=on autoErr=-51.88 gyroFresh=yes gyroRate=0.02 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=356 workUs=3176 maxWorkUs=3188 missed=0 feedbackFull=357 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=8
+TX 16:39:01.040 stop(newline)
+RX 16:39:01.049 ok stop
+TX 16:39:02.301 status(newline)
+RX 16:39:02.343 status mode=disarmed angle=-51.09 upright=0.00 trim=-2.30 target=0.00 bp=0.80 auto=on autoErr=-51.89 gyroFresh=yes gyroRate=0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=640 workUs=3164 maxWorkUs=32652 missed=2 feedbackFull=642 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12

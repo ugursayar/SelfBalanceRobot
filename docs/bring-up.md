@@ -6,16 +6,18 @@ Use short tests and keep the robot held securely until motor direction and balan
 
 Commands are case-insensitive and newline-terminated. USB Serial Monitor uses `Serial` at 115200 baud; set line ending to `Newline` or `Both NL & CR`. Bluetooth test control listens on MegaPi `Serial3` at 115200 baud when `EnableBluetoothTestControl` is true. `Serial2` is reserved for the RPi primary control link.
 
+The default build currently has `Config::BareBalanceFirmware = false`. In this diagnostic profile, USB commands, Bluetooth test control, Bluetooth telemetry, and EEPROM balance-point commands are enabled. EEPROM balance-point learning is available but starts off during unstable bring-up. Target-angle wheel-speed correction and direct wheel-speed damping are disabled while the inner angle loop is being tuned. Automatic USB debug streaming is off by default so serial printing does not disturb the balance loop; use `STATUS` snapshots on USB instead. Set `BareBalanceFirmware = true` in `SelfBalanceRobot/config.h` only when you intentionally want the stripped-down bare-balance firmware.
+
 | Command | Description |
 |---|---|
 | `ARM` | Calibrate upright angle; enter balancing when done. |
 | `STOP` | Stop motors immediately, return to disarmed, and suppress auto-arm briefly. |
 | `M+` | Brief motor test: both wheels drive backward. Robot must be disarmed. |
 | `M-` | Brief motor test: both wheels drive forward. Robot must be disarmed. |
-| `PID <kp> <ki> <kd>` | Update balance gains live. Example: `pid 42 0 0.18` |
+| `PID <kp> <ki> <kd>` | Update balance gains live. Example: `pid 24 0 0.8` |
 | `TRIM <degrees>` | Apply a live/manual relative target adjustment for manual calibration sessions. Example: `trim -0.5` |
 | `BP?` | Print current balance point, stored/default status, and EEPROM write count. |
-| `BP SET <degrees>` | Persist an absolute gyro balance-point angle for auto-arm tests while stopped/disarmed. Example: `bp set 0.85` |
+| `BP SET <degrees>` | Persist an absolute gyro balance-point angle for auto-arm tests while stopped/disarmed. Example: `bp set 0.00` |
 | `BP <degrees>` | Short alias for `BP SET <degrees>`. |
 | `BP CLEAR` | Clear learned EEPROM balance point, fall back to default, stop motors, and suppress auto-arm briefly. |
 | `AUTO ON` / `AUTO OFF` | Enable or disable auto-arm until reset. |
@@ -37,9 +39,28 @@ Do not copy a `TRIM` offset into `BP SET`; persist the absolute target/balance-p
 - `motorWrites` / `motorStops`: hardware motor output calls.
 - `telemUs` / `maxTelemUs`: latest and peak telemetry formatting time.
 
-When tuning performance, collect one `STATUS` snapshot with debug telemetry off and one with telemetry on. Prefer changes that reduce `maxWorkUs` and keep `missed` stable at zero before considering a faster balance loop.
+When tuning performance in the diagnostic firmware, collect one `STATUS` snapshot with Bluetooth telemetry off and one with Bluetooth telemetry on. Prefer changes that reduce `maxWorkUs` and keep `missed` stable at zero before considering a faster balance loop.
 
-Auto-arm is enabled by default. If EEPROM contains a valid learned balance point, or if the configured default balance point is close enough for the current build, the robot can enter balancing without a serial `ARM` when it is held nearly still near that angle. `STOP` still disarms immediately and starts a short auto-arm cooldown.
+### Performance Validation Pass
+
+This pass applies to the diagnostic firmware (`BareBalanceFirmware = false`). After uploading firmware, keep the robot held securely and collect `STATUS` snapshots in this order:
+
+1. Booted and disarmed with Bluetooth telemetry off.
+2. Disarmed after sending `TELEM ON`.
+3. During a short held `ARM`/balancing session.
+4. Immediately after `STOP`.
+
+Use those snapshots before changing control behavior:
+
+- `missed=0` means the balance loop is keeping its period.
+- `maxWorkUs` should stay well below `BalanceLoopMicros`.
+- `feedbackFull` should increase periodically, and every balance tick only when a speed-based correction or Bluetooth telemetry explicitly requires full feedback.
+- `motorWrites` should not climb every tick when the commanded output is steady.
+- `motorStops` should not climb continuously while the robot is already idle.
+
+If these checks pass, prioritize mechanical balance, trim, PID, and travel-hold tuning. If `missed` rises or `maxWorkUs` approaches `BalanceLoopMicros`, reduce telemetry or loop work before considering a faster loop rate.
+
+Auto-arm is enabled by default but uses a tight diagnostic gate: the robot must be close to the active balance point and nearly still before motors enable. In diagnostic mode, EEPROM can provide a learned balance point; if EEPROM is empty, the firmware uses `AutoArmDefaultBalancePointDegrees`. The current hardware's starting cable-free test point is stored as `BP=0.00`; `BP=0.70` was observed to command forward drive during auto-arm. Use `AUTO OFF` while manually tuning if the robot re-arms too aggressively after a catch. `STOP` still disarms immediately and starts a short auto-arm cooldown.
 
 ## First Checks
 
@@ -71,57 +92,79 @@ The first angular rate sample after release is the best predictor of outcome:
 ## Cable-Free Auto-Arm
 
 1. Power the robot without the USB cable attached.
-2. Hold it near the known balance point and as still as possible.
+2. Hold it near the known balance point and as still as possible. For the current hardware, start around the stored `BP=0.00` point.
 3. Wait for auto-arm to enter balancing; the LED becomes solid when balancing starts.
 4. Keep holding for another 500 ms-1 s so the controller settles before release.
 5. If it re-arms too aggressively after a catch, send `STOP` while connected or power-cycle and increase `AutoArmStopCooldownMillis`.
 
-The learned balance point is stored in EEPROM as an absolute gyro angle. During stable balancing, firmware may update it slowly using `BalancePointLearningAlpha`, but it will not write continuously while the robot is unstable.
+In diagnostic mode, the cable-free balance point is stored in EEPROM as an absolute gyro angle. USB/Bluetooth `ARM` calibrates the current held angle, but cable-free auto-arm uses the stored `BP` target instead. If cable-free auto-arm immediately drives forward, the stored `BP` is too high; lower it in small steps such as `bp set -0.30` or `bp set -0.50`. If it immediately drives backward, the stored `BP` is too low; raise it in small steps. Balance-point learning starts off by default; turn `LEARN ON` back on only after the robot can balance without immediate divergence.
 
 ## Bluetooth Cable-Free Test Flow
 
+This flow uses the default diagnostic profile (`BareBalanceFirmware = false`).
+
 1. Upload over USB, then disconnect the USB cable.
 2. Connect to the Bluetooth serial module at 115200 baud. The firmware listens on `Serial3`.
-3. Send `STOP`, `AUTO OFF`, `LEARN OFF`, and `BP CLEAR`.
+3. Send `STOP`, `AUTO OFF`, `LEARN OFF`, and `BP SET 0.00`.
 4. Send `STATUS` and confirm `angle=` changes when tipping forward/backward.
 5. For manual tests, hold the robot still and send `ARM`.
 6. If it falls forward immediately, stop, adjust the manual target in small relative steps with `TRIM <degrees>`, and retry.
-7. Once a cable-free balance point works for short manual tests, note the absolute target/balance-point angle from diagnostics. Stop/disarm, send `BP SET <degrees>` with that absolute angle, then test `AUTO ON`.
+7. For cable-free auto-arm, tune the stored absolute `BP` directly. If auto-arm drives forward immediately, lower `BP`; if it drives backward immediately, raise `BP`.
 8. Turn `LEARN ON` back on only after the robot can balance without immediate divergence.
 
 ## Balance Tuning
 
-### Current Baseline (config.h as of 2026-05-29)
+### Current Diagnostic Baseline (config.h as of 2026-06-04)
 
 ```
-BalanceKp = 42.0
+BareBalanceFirmware = false
+BalanceLoopMicros = 10000
+BalanceKp = 24.0
 BalanceKi = 0.0
-BalanceKd = 1.0
+BalanceKd = 0.8
 BalanceRateFilterAlpha = 0.75
-BalanceAngleTrimDegrees = -2.3      (negative = lean forward; adjust live with TRIM)
+BalanceGyroRateSign = -1.0
+BalanceAngleTrimDegrees = 0.0       (start with no trim bias for inner-loop tests)
 MinBalanceBoostAngleDegrees = 0.80
 MinBalanceMotorCommand = 16
+MaxMotorCommand = 255
 LargeLeanBoostAngleDegrees = 2.0
 LargeLeanBoostCommandPerDegree = 6.0
-WheelSpeedTargetCorrectionDegreesPerRpm = 0.0   (disabled — sign not yet verified)
+WheelSpeedTargetCorrectionDegreesPerRpm = 0.0
 MaxWheelSpeedTargetCorrectionDegrees = 0.0
-WheelSpeedDampingCommandPerRpm = 0.0            (disabled — sign issue, see note)
-TravelHoldTargetDegreesPerWheelDegree = 0.002   (experimental)
+WheelSpeedDampingCommandPerRpm = 0.0
+TravelHoldTargetDegreesPerWheelDegree = 0.0     (disabled during baseline tuning)
 MaxTravelHoldTargetCorrectionDegrees = 0.5
 StillAngleDeltaDegrees = 1.5
+FallAngleDegrees = 35.0
+SafetyCutoffAngleErrorDegrees = 0.0
+SafetyCutoffMotorCommand = 0
+SafetyCutoffMillis = 0
 AutoArmDefaultBalancePointDegrees = 0.70
-AutoArmAngleWindowDegrees = 3.0
-AutoArmMaxRateDegPerSec = 12.0
+Stored hardware BP = 0.00                 (current cable-free test point)
+AutoArmAngleWindowDegrees = 1.0
+AutoArmMaxRateDegPerSec = 4.0
 AutoArmStillMillis = 900
 AutoArmStopCooldownMillis = 3000
-BalancePointLearningAlpha = 0.25
+EnableDebugSerial = false
+EnableBluetoothTestControl = true
+EnableBalancePointLearning = true
+EnableBalancePointLearningByDefault = false
+EnableMotorFeedback = true
 ```
+
+Stop reason indicators:
+- Rapid blink while disarmed: safety cutoff stopped the motors (only when safety cutoff is enabled).
+- Slow blink in fault: fall, gyro, or calibration fault stopped balancing.
+- LED off while disarmed: command/manual stop or normal idle.
+- USB `STATUS` includes `stopReason=` when connected.
 
 Sign conventions confirmed:
 - `m-` drives forward, `m+` drives backward.
 - Forward tilt makes `angle=` go negative.
+- While forward tilt is increasing, `rate=` should also go negative. If it has the opposite sign, change `BalanceGyroRateSign`.
 - Both wheels drive in the same robot direction.
-- `BalanceAngleTrimDegrees = -2.3` compensates for the robot's CG being ~2.3° forward of the calibrated upright angle.
+- `BalanceAngleTrimDegrees = 0.0` keeps the manual `ARM` target at the calibrated hold angle. Add trim only after the inner angle loop stops launching or oscillating.
 
 ### Tuning Steps
 
@@ -130,16 +173,16 @@ Sign conventions confirmed:
 3. If the robot falls without correcting strongly enough, increase `BalanceKp` in small steps.
 4. If `left=` and `right=` are near `MaxMotorCommand` but the robot still cannot recover, increase `MaxMotorCommand`.
 5. Increase `BalanceKd` only enough to damp oscillation without making corrections jerky. At Kd > 1.5 with angular rates > 40°/s, the D-term can override the P-term and produce wrong-direction corrections.
-6. Use `TRIM` to correct a consistent standing lean **before** changing gains. Send small steps: `trim 0.3`, `trim -0.3`, `trim 0.6`, `trim -0.6`. Once you find the right value, copy it into `BalanceAngleTrimDegrees` in `config.h`.
+6. After the robot can enter balancing without a launch, use `TRIM` to correct a consistent standing lean. Send small steps: `trim 0.2`, `trim -0.2`, `trim 0.4`, `trim -0.4`. Once you find the right value, copy it into `BalanceAngleTrimDegrees` in `config.h`.
 7. Add a very small `BalanceKi` only after P, D, motor limits, and trim are stable.
 
 You can tune gains live without re-uploading:
 
 ```
-pid 25 0 0.7
-pid 35 0 0.9
-pid 45 0 1.1
-pid 60 0 1.4
+pid 22 0 0.7
+pid 24 0 0.8
+pid 28 0 0.6
+pid 30 0 0.9
 ```
 
 ### Auto-Trim via PowerShell
@@ -148,7 +191,7 @@ If the calibration angle varies between tests (common when holding the robot at 
 
 ```powershell
 # Usage: run BEFORE sending ARM. Set $targetAngle to your desired balance angle.
-$targetAngle = 0.70   # degrees — the CG sweet spot, typically 0.5–1.0
+$targetAngle = 0.00   # degrees — current cable-free starting point
 
 $port = New-Object System.IO.Ports.SerialPort("COM8", 115200)
 $port.Open()
@@ -174,16 +217,24 @@ while ($true) {
 | `balance=` non-zero but motors don't respond until large lean | `MinBalanceMotorCommand` too low | Raise `MinBalanceMotorCommand` |
 | Small corrections are jumpy or oscillate sign | D-term or min-boost too aggressive | Lower `BalanceKd`, lower `MinBalanceMotorCommand`, or raise `MinBalanceBoostAngleDegrees` |
 | Robot drifts steadily in one direction | CG offset from upright setpoint | Use `TRIM` to find correct lean, then set `BalanceAngleTrimDegrees` |
-| Robot slowly builds forward/backward oscillation | Travel hold or speed correction enabled | Reduce `TravelHoldTargetDegreesPerWheelDegree` toward `0.0` and confirm `WheelSpeedTargetCorrectionDegreesPerRpm = 0.0` |
+| Cable-free auto-arm drives forward immediately | Stored `BP` is too high for the cable-free balance point | Lower stored `BP`, starting from `bp set 0.00` toward `bp set -0.30` |
+| Cable-free auto-arm drives backward immediately | Stored `BP` is too low for the cable-free balance point | Raise stored `BP` in small steps |
+| Robot drives away while angle stays near target | Angle loop is balancing the body but travel feedback is absent or too weak | Finish inner angle-loop tuning first, then re-enable speed correction only after encoder speed sign is confirmed |
+| Robot slowly builds forward/backward oscillation | Travel hold too aggressive | Keep `TravelHoldTargetDegreesPerWheelDegree = 0.0` until speed correction is stable |
 | Calibration faults with robot held still | `StillAngleDeltaDegrees` too tight | Raise to `1.5` (current default) |
 | LED slow-blinks immediately on ARM | Calibration fault — robot moving too much, or startup angle > 12° | Hold robot more upright and still; check Serial for `mode-change=fault` |
-| D-term causes wrong-direction correction | Angular rate > 40°/s with high Kd | Reduce `BalanceKd`; keep Kd ≤ 1.0 until Kp is confirmed stable |
-| `WheelSpeedDampingCommandPerRpm` enabled | Formula amplifies instead of damps in same-direction lean+spin | Keep at 0.0 until sign is re-verified with encoder direction confirmed |
+| Board shows its two-blink reboot pattern after motors stop | Motor current spike, brownout, or battery/contact interruption | Check `STATUS reset=` while USB remains connected; keep `MaxMotorCommand` capped during diagnosis and secure the battery contacts |
+| D-term causes wrong-direction correction | Rate sign is wrong or angular rate is too large with high Kd | Check `rate=` sign first; then reduce `BalanceKd` if needed |
+| Speed damping makes forward travel worse | Direct damping was re-enabled with the wrong encoder sign or damping sign | Keep `WheelSpeedDampingCommandPerRpm = 0.0` during diagnostic tuning |
 
 ### Notes on Disabled Features
 
-**Travel Hold** (`TravelHoldTargetDegreesPerWheelDegree`): Currently enabled at a small experimental value. If forward/backward oscillation grows, reduce it toward `0.0` before changing PID gains.
+**Travel Hold** (`TravelHoldTargetDegreesPerWheelDegree`): Currently disabled for baseline tuning after wireless tests showed target drift during longer runs. Re-enable only after the robot is stable without it.
 
-**Wheel Speed Damping** (`WheelSpeedDampingCommandPerRpm`): Formula `balance -= speed * coeff` has the wrong sign when lean and wheel spin are in the same direction (both forward → amplifies forward drive). Keep at 0.0 until encoder sign conventions are confirmed and the formula is corrected.
+**Auto Arm Window** (`AutoArmAngleWindowDegrees`): Set to 1.0 degree in diagnostic mode, with a 4 deg/s rate gate. This prevents cable-free auto-arm from enabling while the robot is already leaning forward or backward. Balance-point learning starts off; send `LEARN ON` only after the robot can balance without immediate divergence.
 
-**Wheel Speed Target Correction** (`WheelSpeedTargetCorrectionDegreesPerRpm`): Not yet tested with this hardware configuration. Keep at 0.0 until balance is fully stable without it.
+**Wheel Speed Damping** (`WheelSpeedDampingCommandPerRpm`): Disabled at `0.0` in the diagnostic profile. Reintroduce direct damping only after the angle loop is stable and encoder speed signs are confirmed.
+
+### Notes on Experimental Features
+
+**Wheel Speed Target Correction** (`WheelSpeedTargetCorrectionDegreesPerRpm`): Disabled at `0.0` with a `0.0` degree cap during cable-connected wobble debugging. Re-enable it only after the robot can hold the inner angle target without fast oscillation; while this term is enabled, encoder speed is refreshed every balance tick so the velocity outer loop is not working from stale speed data.

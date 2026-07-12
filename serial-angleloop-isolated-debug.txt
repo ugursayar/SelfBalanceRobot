@@ -1,0 +1,36 @@
+TX stop
+RX ok stop
+TX auto off
+RX ok auto=off
+TX learn off
+RX ok learn=off
+TX bp?
+RX balance-point active=0.70 store=0.70 stored=no writes=0
+TX status
+RX status mode=disarmed angle=-51.96 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.66 gyroFresh=yes gyroRate=-0.12 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=374 workUs=2996 maxWorkUs=4368 missed=0 feedbackFull=76 feedbackLight=299 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX arm
+RX ignored arm
+TX status
+RX status mode=disarmed angle=-52.00 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.70 gyroFresh=yes gyroRate=-0.08 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=520 workUs=2988 maxWorkUs=32860 missed=2 feedbackFull=106 feedbackLight=416 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-52.01 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.71 gyroFresh=yes gyroRate=-0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=570 workUs=2988 maxWorkUs=33216 missed=4 feedbackFull=117 feedbackLight=456 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-51.99 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.69 gyroFresh=yes gyroRate=-0.02 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=620 workUs=3040 maxWorkUs=33216 missed=6 feedbackFull=128 feedbackLight=496 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-52.00 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.70 gyroFresh=yes gyroRate=-0.06 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=671 workUs=3136 maxWorkUs=33256 missed=8 feedbackFull=140 feedbackLight=536 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-52.01 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.71 gyroFresh=yes gyroRate=0.00 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=722 workUs=2964 maxWorkUs=33256 missed=10 feedbackFull=151 feedbackLight=577 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-52.02 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.72 gyroFresh=yes gyroRate=-0.08 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=772 workUs=2952 maxWorkUs=33256 missed=12 feedbackFull=162 feedbackLight=617 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-52.01 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.71 gyroFresh=yes gyroRate=-0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=823 workUs=2948 maxWorkUs=33256 missed=14 feedbackFull=173 feedbackLight=658 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-52.00 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.70 gyroFresh=yes gyroRate=0.00 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=874 workUs=2956 maxWorkUs=33256 missed=16 feedbackFull=184 feedbackLight=699 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-51.96 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.66 gyroFresh=yes gyroRate=-0.03 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=925 workUs=2988 maxWorkUs=33256 missed=18 feedbackFull=195 feedbackLight=740 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-51.99 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.69 gyroFresh=yes gyroRate=0.11 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=976 workUs=3160 maxWorkUs=33280 missed=20 feedbackFull=207 feedbackLight=780 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX status
+RX status mode=disarmed angle=-52.00 upright=0.00 trim=-2.30 target=0.00 bp=0.70 auto=off autoErr=-52.70 gyroFresh=yes gyroRate=-0.12 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=no stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=1027 workUs=3052 maxWorkUs=33280 missed=22 feedbackFull=218 feedbackLight=821 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12
+TX stop
+RX ok stop

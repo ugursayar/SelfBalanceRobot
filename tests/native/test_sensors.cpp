@@ -24,7 +24,7 @@ static void test_balance_axis_uses_configured_x_axis() {
   assert(frame.angleDegrees == 12.5f);
 }
 
-static void test_repeated_still_angle_remains_fresh() {
+static void test_balance_rate_matches_angle_derivative_sign() {
   Sensors sensors;
   sensors.begin();
 
@@ -35,12 +35,12 @@ static void test_repeated_still_angle_remains_fresh() {
   const SensorFrame& second = sensors.update(110);
   assert(second.gyroFresh);
   assert(second.angleDegrees == 12.5f);
-  assert(second.angleRateDegPerSec == 5.0f);
+  assert(second.angleRateDegPerSec == -5.0f);
 }
 
 int main() {
   test_balance_axis_uses_configured_x_axis();
-  test_repeated_still_angle_remains_fresh();
+  test_balance_rate_matches_angle_derivative_sign();
 
   std::cout << "test_sensors PASS\n";
   return EXIT_SUCCESS;

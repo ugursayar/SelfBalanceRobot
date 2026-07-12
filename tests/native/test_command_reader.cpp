@@ -45,6 +45,28 @@ static void test_reader_waits_for_newline() {
   assert(!reader.readCommand(command, 10));
 }
 
+static void test_reader_accepts_stop_without_newline() {
+  FakeStream stream("STOP");
+  CommandReader reader;
+  reader.begin(stream);
+
+  ParsedCommand command;
+  assert(reader.readCommand(command, 11));
+  assert(command.action == ParsedCommandAction::Stop);
+  assert(command.receivedMillis == 11);
+}
+
+static void test_reader_accepts_status_without_newline() {
+  FakeStream stream("status");
+  CommandReader reader;
+  reader.begin(stream);
+
+  ParsedCommand command;
+  assert(reader.readCommand(command, 12));
+  assert(command.action == ParsedCommandAction::Status);
+  assert(command.receivedMillis == 12);
+}
+
 static void test_reader_parses_complete_line_with_timestamp() {
   FakeStream stream("ARM\n");
   CommandReader reader;
@@ -179,6 +201,8 @@ static void test_reset_discards_overflow_state() {
 
 int main() {
   test_reader_waits_for_newline();
+  test_reader_accepts_stop_without_newline();
+  test_reader_accepts_status_without_newline();
   test_reader_parses_complete_line_with_timestamp();
   test_reader_returns_one_command_per_call();
   test_reader_ignores_empty_newline_before_command();

@@ -174,11 +174,9 @@ void BalancePointStore::writeSlot(uint8_t slot, float angleDegrees,
   bytes[kCrcLowOffset] = static_cast<uint8_t>(crc & 0xFF);
   bytes[kCrcHighOffset] = static_cast<uint8_t>((crc >> 8) & 0xFF);
 
-  for (uint8_t i = 0; i < kCrcHighOffset; ++i) {
+  for (uint8_t i = 0; i < kRecordSize; ++i) {
     writeByte(static_cast<uint16_t>(offset + i), bytes[i]);
   }
-  writeByte(static_cast<uint16_t>(offset + kCrcHighOffset),
-            bytes[kCrcHighOffset]);
 }
 
 uint16_t BalancePointStore::crc16(const uint8_t* bytes, uint8_t length) const {

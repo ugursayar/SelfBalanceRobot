@@ -41,10 +41,17 @@ static void test_reports_unknown_reset_flags() {
   assert(flags.unknown);
 }
 
+static void test_sanitize_drops_reserved_reset_bits() {
+  assert(ResetDiagnostics::sanitize(0x40) == 0);
+  assert(ResetDiagnostics::sanitize(ResetDiagnostics::External | 0x40) ==
+         ResetDiagnostics::External);
+}
+
 int main() {
   test_decodes_no_reset_flags();
   test_decodes_known_reset_flags();
   test_reports_unknown_reset_flags();
+  test_sanitize_drops_reserved_reset_bits();
 
   std::cout << "test_reset_diagnostics PASS\n";
   return EXIT_SUCCESS;

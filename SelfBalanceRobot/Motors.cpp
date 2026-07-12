@@ -20,14 +20,20 @@ Motors::Motors()
 void Motors::begin() {
   configureMegaPiEncoderPwmTimers();
   activeMotors = this;
-  // CHANGE captures both edges for 2× quadrature resolution.
-  attachInterrupt(rightMotor_.getIntNum(), rightEncoderIsr, CHANGE);
-  attachInterrupt(leftMotor_.getIntNum(), leftEncoderIsr, CHANGE);
+  if (Config::EnableMotorFeedback) {
+    // CHANGE captures both edges for 2× quadrature resolution.
+    attachInterrupt(rightMotor_.getIntNum(), rightEncoderIsr, CHANGE);
+    attachInterrupt(leftMotor_.getIntNum(), leftEncoderIsr, CHANGE);
+  }
   resetTravel();
   stop();
 }
 
 WheelFeedback Motors::updateFeedback(MotorFeedbackMode mode) {
+  if (!Config::EnableMotorFeedback) {
+    return feedback_;
+  }
+
   if (mode == MotorFeedbackMode::Full) {
     rightMotor_.updateSpeed();
     leftMotor_.updateSpeed();
@@ -60,9 +66,11 @@ void Motors::resetTravel() {
 }
 
 void Motors::write(const MotorCommand& command) {
-  // Right motor is mirrored on this build; keep logical commands normalized.
-  rightMotor_.setMotorPwm(static_cast<int16_t>(-command.right));
-  leftMotor_.setMotorPwm(command.left);
+  // Net drive direction inverted after the motor reassembly: a positive command
+  // must move the base toward a forward lean to recover. Both wheels are flipped
+  // together so they stay paired (left/right relative mirror is unchanged).
+  rightMotor_.setMotorPwm(command.right);
+  leftMotor_.setMotorPwm(static_cast<int16_t>(-command.left));
   refreshPwmFeedback();
 }
 

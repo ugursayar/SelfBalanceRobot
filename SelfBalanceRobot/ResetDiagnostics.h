@@ -21,6 +21,10 @@ namespace ResetDiagnostics {
   };
 
   ResetCauseFlags decode(uint8_t rawFlags);
+
+  constexpr uint8_t sanitize(uint8_t rawFlags) {
+    return rawFlags & KnownMask;
+  }
 }
 
 #endif

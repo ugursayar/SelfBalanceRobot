@@ -2,6 +2,7 @@
 #define BALANCE_PIPELINE_H
 
 #include "BalanceController.h"
+#include "LqrController.h"
 #include "RobotTypes.h"
 #include "config.h"
 
@@ -27,13 +28,19 @@ struct BalancePipelineOutput {
 
 class BalancePipeline {
 public:
+  // Runs the active controller (LQR when Config::EnableLqrController, otherwise
+  // the PID BalanceController) and applies the shared output shaping.  Both
+  // controllers are passed in; the inactive one is left untouched.
   BalancePipelineOutput update(const BalancePipelineInput& input,
-                               BalanceController& controller) const;
+                               BalanceController& controller,
+                               LqrController& lqr) const;
 
 private:
   float baseBalanceTargetDegrees(const BalancePipelineInput& input) const;
   float rampedTargetDegrees(const BalancePipelineInput& input,
+                            float baseTargetDegrees,
                             float finalTargetDegrees) const;
+  static float clampSymmetric(float value, float limit);
   float clampWheelSpeedTargetCorrection(float correctionDegrees) const;
   float clampTravelHoldTargetCorrection(float correctionDegrees) const;
   int16_t clampMotorCommand(float command) const;

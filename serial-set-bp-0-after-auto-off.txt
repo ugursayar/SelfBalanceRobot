@@ -1,0 +1,13 @@
+TX stop
+RX ok stop
+TX auto off
+RX ok auto=off
+TX learn off
+RX ok learn=off
+WAIT stop-cooldown before BP SET
+TX bp set 0.00
+RX ok bp=0.00 writes=11
+TX bp?
+RX balance-point active=0.00 store=0.00 stored=yes writes=11
+TX status
+RX status mode=disarmed angle=0.00 upright=0.00 trim=0.00 target=0.00 bp=0.00 auto=off autoErr=0.00 gyroFresh=yes gyroRate=0.00 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=24.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=880 workUs=300 maxWorkUs=22356 missed=1 feedbackFull=177 feedbackLight=704 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12

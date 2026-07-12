@@ -9,8 +9,9 @@ void RuntimeStats::recordBalanceTick(unsigned long loopIntervalMicros,
   if (workMicros > snapshot_.maxWorkMicros) {
     snapshot_.maxWorkMicros = workMicros;
   }
-  if (loopIntervalMicros > targetLoopMicros) {
-    ++snapshot_.missedDeadlines;
+  if (targetLoopMicros > 0 && loopIntervalMicros >= targetLoopMicros * 2UL) {
+    snapshot_.missedDeadlines +=
+        static_cast<uint32_t>((loopIntervalMicros / targetLoopMicros) - 1UL);
   }
 }
 

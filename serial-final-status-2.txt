@@ -1,0 +1,5 @@
+ok stop
+ok auto=off
+ok telem=off
+status mode=disarmed angle=-51.85 upright=0.00 trim=-2.30 target=0.00 bp=0.80 auto=off autoErr=-52.65 gyroFresh=yes gyroRate=0.00 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=286 workUs=3096 maxWorkUs=3276 missed=0 feedbackFull=287 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=8
+status mode=disarmed angle=-51.89 upright=0.00 trim=-2.30 target=0.00 bp=0.80 auto=off autoErr=-52.69 gyroFresh=yes gyroRate=-0.08 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=42.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=837 workUs=3220 maxWorkUs=32732 missed=2 feedbackFull=839 feedbackLight=0 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=12

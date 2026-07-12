@@ -2,7 +2,8 @@
 
 BalancePipelineOutput
 BalancePipeline::update(const BalancePipelineInput& input,
-                        BalanceController& controller) const {
+                        BalanceController& controller,
+                        LqrController& lqr) const {
   BalancePipelineOutput output;
 
   const float speedCorrection = clampWheelSpeedTargetCorrection(
@@ -15,12 +16,21 @@ BalancePipeline::update(const BalancePipelineInput& input,
   output.baseTargetDegrees = baseBalanceTargetDegrees(input);
   const float finalTarget = output.baseTargetDegrees + speedCorrection +
                             output.travelHoldTargetCorrectionDegrees;
-  output.targetAngleDegrees = rampedTargetDegrees(input, finalTarget);
+  output.targetAngleDegrees =
+      rampedTargetDegrees(input, output.baseTargetDegrees, finalTarget);
 
-  controller.setTargetAngle(output.targetAngleDegrees);
-  output.rawBalanceOutput =
-      controller.update(input.frame.angleDegrees,
-                        input.frame.angleRateDegPerSec, input.dtSeconds);
+  if (Config::EnableLqrController) {
+    lqr.setTargetAngle(output.targetAngleDegrees);
+    output.rawBalanceOutput = lqr.update(
+        input.frame.angleDegrees, input.frame.angleRateDegPerSec,
+        input.wheelFeedback.averagePositionDegrees,
+        input.wheelFeedback.averageSpeedRpm, input.dtSeconds);
+  } else {
+    controller.setTargetAngle(output.targetAngleDegrees);
+    output.rawBalanceOutput =
+        controller.update(input.frame.angleDegrees,
+                          input.frame.angleRateDegPerSec, input.dtSeconds);
+  }
 
   const float angleError =
       output.targetAngleDegrees - input.frame.angleDegrees;
@@ -45,12 +55,13 @@ float BalancePipeline::baseBalanceTargetDegrees(
 }
 
 float BalancePipeline::rampedTargetDegrees(
-    const BalancePipelineInput& input, float finalTargetDegrees) const {
+    const BalancePipelineInput& input, float baseTargetDegrees,
+    float finalTargetDegrees) const {
   const unsigned long rampMs = Config::BalanceTargetRampMillis;
   const unsigned long elapsed =
       input.frame.nowMillis - input.balancingStartMillis;
   const float rampStartTarget = input.balanceSessionUsesPersistedPoint
-                                    ? baseBalanceTargetDegrees(input)
+                                    ? baseTargetDegrees
                                     : input.uprightAngleDegrees;
   if (elapsed < rampMs) {
     const float rampFraction =
@@ -61,38 +72,31 @@ float BalancePipeline::rampedTargetDegrees(
   return finalTargetDegrees;
 }
 
-float BalancePipeline::clampWheelSpeedTargetCorrection(
-    float correctionDegrees) const {
-  const float limit = Config::MaxWheelSpeedTargetCorrectionDegrees;
-  if (correctionDegrees > limit) {
+float BalancePipeline::clampSymmetric(float value, float limit) {
+  if (value > limit) {
     return limit;
   }
-  if (correctionDegrees < -limit) {
+  if (value < -limit) {
     return -limit;
   }
-  return correctionDegrees;
+  return value;
+}
+
+float BalancePipeline::clampWheelSpeedTargetCorrection(
+    float correctionDegrees) const {
+  return clampSymmetric(correctionDegrees,
+                        Config::MaxWheelSpeedTargetCorrectionDegrees);
 }
 
 float BalancePipeline::clampTravelHoldTargetCorrection(
     float correctionDegrees) const {
-  const float limit = Config::MaxTravelHoldTargetCorrectionDegrees;
-  if (correctionDegrees > limit) {
-    return limit;
-  }
-  if (correctionDegrees < -limit) {
-    return -limit;
-  }
-  return correctionDegrees;
+  return clampSymmetric(correctionDegrees,
+                        Config::MaxTravelHoldTargetCorrectionDegrees);
 }
 
 int16_t BalancePipeline::clampMotorCommand(float command) const {
-  if (command > Config::MaxMotorCommand) {
-    return Config::MaxMotorCommand;
-  }
-  if (command < -Config::MaxMotorCommand) {
-    return -Config::MaxMotorCommand;
-  }
-  return static_cast<int16_t>(command);
+  return static_cast<int16_t>(
+      clampSymmetric(command, Config::MaxMotorCommand));
 }
 
 int16_t BalancePipeline::applyLargeLeanBoost(int16_t balanceOutput,

@@ -14,6 +14,7 @@ float clampFloat(float value, float minimum, float maximum) {
 
 BalanceController::BalanceController()
     : kp_(0.0f), ki_(0.0f), kd_(0.0f),
+      smallErrorDegrees_(0.0f), smallErrorGainScale_(1.0f),
       integralLimitDegreesSeconds_(0.0f), targetAngleDegrees_(0.0f),
       integral_(0.0f), previousMeasuredAngleDegrees_(0.0f),
       filteredMeasuredAngleRateDegreesPerSecond_(0.0f),
@@ -32,6 +33,26 @@ void BalanceController::setIntegralLimit(float integralLimitDegreesSeconds) {
   integralLimitDegreesSeconds_ =
       integralLimitDegreesSeconds < 0.0f ? -integralLimitDegreesSeconds
                                          : integralLimitDegreesSeconds;
+}
+
+void BalanceController::setGainSchedule(float smallErrorDegrees,
+                                        float smallErrorGainScale) {
+  smallErrorDegrees_ =
+      smallErrorDegrees < 0.0f ? -smallErrorDegrees : smallErrorDegrees;
+  smallErrorGainScale_ = clampFloat(smallErrorGainScale, 0.0f, 1.0f);
+}
+
+float BalanceController::scheduledProportionalGain(float error) const {
+  if (smallErrorDegrees_ <= 0.0f) {
+    return kp_;
+  }
+  const float absError = error < 0.0f ? -error : error;
+  if (absError >= smallErrorDegrees_) {
+    return kp_;
+  }
+  const float ramp = absError / smallErrorDegrees_;  // 0 at upright, 1 at edge
+  const float scale = smallErrorGainScale_ + ((1.0f - smallErrorGainScale_) * ramp);
+  return kp_ * scale;
 }
 
 void BalanceController::setRateFilter(float filterAlpha) {
@@ -91,7 +112,7 @@ int16_t BalanceController::update(float measuredAngleDegrees,
   hasPreviousMeasuredAngle_ = true;
 
   const float rawOutput =
-      -((kp_ * error) + (ki_ * integral_)) +
+      -((scheduledProportionalGain(error) * error) + (ki_ * integral_)) +
       (kd_ * filteredMeasuredAngleRateDegreesPerSecond_);
   const float limitedOutput =
       clampFloat(rawOutput, -static_cast<float>(outputLimit_),
@@ -129,7 +150,7 @@ int16_t BalanceController::update(float measuredAngleDegrees,
   hasPreviousMeasuredAngle_ = true;
 
   const float rawOutput =
-      -((kp_ * error) + (ki_ * integral_)) +
+      -((scheduledProportionalGain(error) * error) + (ki_ * integral_)) +
       (kd_ * filteredMeasuredAngleRateDegreesPerSecond_);
   const float limitedOutput =
       clampFloat(rawOutput, -static_cast<float>(outputLimit_),

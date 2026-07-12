@@ -69,8 +69,20 @@ static void test_status_contains_runtime_and_control_fields() {
   assert(text.find(" target=") != std::string::npos);
   assert(text.find(" raw=") != std::string::npos);
   assert(text.find(" balance=") != std::string::npos);
+  assert(text.find(" stopReason=none") != std::string::npos);
   assert(text.find(" loopTicks=") != std::string::npos);
   assert(text.find(" workUs=") != std::string::npos);
+}
+
+static void test_status_reports_safety_stop_reason() {
+  TelemetrySnapshot snapshot = sample();
+  snapshot.stopReason = StopReason::SafetyCutoff;
+  CaptureOutput out;
+
+  TelemetryFormatter::printStatus(out, snapshot);
+  const std::string text = out.str();
+
+  assert(text.find(" stopReason=safety") != std::string::npos);
 }
 
 static void test_debug_uses_shorter_field_set_than_status() {
@@ -98,6 +110,7 @@ static void test_bluetooth_telemetry_keeps_telem_prefix() {
 
 int main() {
   test_status_contains_runtime_and_control_fields();
+  test_status_reports_safety_stop_reason();
   test_debug_uses_shorter_field_set_than_status();
   test_bluetooth_telemetry_keeps_telem_prefix();
 

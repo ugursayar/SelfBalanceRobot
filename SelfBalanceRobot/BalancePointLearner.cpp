@@ -87,9 +87,13 @@ BalancePointLearner::update(const SensorFrame& frame,
     return result;
   }
 
+  // Learn toward the angle the robot actually settles at while stable, not the
+  // commanded target.  isStable() above already gates on proximity to the
+  // active balance point (the target); the value we persist is the measured
+  // resting angle, so the stored point can converge to the true balance point.
   storedBalancePointDegrees_ =
       storedBalancePointDegrees_ +
-      smoothingAlpha_ * (activeBalancePointDegrees - storedBalancePointDegrees_);
+      smoothingAlpha_ * (frame.angleDegrees - storedBalancePointDegrees_);
   lastWriteMillis_ = nowMillis;
   hasSaved_ = true;
 

@@ -1,14 +1,23 @@
 #include "Sensors.h"
 
-Sensors::Sensors()
-    : gyro_(Config::GyroPort), frame_(), lastAngleDegrees_(0.0f),
-      hasLastAngle_(false) {}
+namespace {
+float clampRate(float rate) {
+  const float kMax = 150.0f;
+  if (rate > kMax) {
+    return kMax;
+  }
+  if (rate < -kMax) {
+    return -kMax;
+  }
+  return rate;
+}
+}  // namespace
+
+Sensors::Sensors() : gyro_(Config::GyroPort), frame_() {}
 
 void Sensors::begin() {
   gyro_.begin();
   frame_ = SensorFrame();
-  lastAngleDegrees_ = 0.0f;
-  hasLastAngle_ = false;
 }
 
 const SensorFrame& Sensors::update(unsigned long nowMillis) {
@@ -17,13 +26,12 @@ const SensorFrame& Sensors::update(unsigned long nowMillis) {
 
   gyro_.update();
   const float newAngle = readBalanceAngle();
-  // MeGyro integrates gyrY into getAngleX (axis swap in update()), so
-  // getGyroY() is the zero-latency rate for BalanceGyroAxis::X.
-  frame_.angleRateDegPerSec = static_cast<float>(gyro_.getGyroY());
+
+  // Only a no-lag clamp on absurd vibration spikes; the kd damping term needs a
+  // fast rate signal, so no smoothing here beyond the controller's rate filter.
+  frame_.angleRateDegPerSec = clampRate(readBalanceAngleRate());
 
   frame_.angleDegrees = newAngle;
-  lastAngleDegrees_ = newAngle;
-  hasLastAngle_ = true;
   frame_.gyroFresh = true;
 
   return frame_;
@@ -42,4 +50,22 @@ float Sensors::readBalanceAngle() const {
   }
 
   return gyro_.getAngleX();
+}
+
+float Sensors::readBalanceAngleRate() const {
+  float rawRate = 0.0f;
+  switch (Config::BalanceGyroAxis) {
+  case GyroAxis::X:
+    // MeGyro integrates gyrY into getAngleX, so use gyrY for X pitch.
+    rawRate = static_cast<float>(gyro_.getGyroY());
+    break;
+  case GyroAxis::Y:
+    rawRate = static_cast<float>(gyro_.getGyroX());
+    break;
+  case GyroAxis::Z:
+    rawRate = static_cast<float>(gyro_.getGyroZ());
+    break;
+  }
+
+  return rawRate * Config::BalanceGyroRateSign;
 }

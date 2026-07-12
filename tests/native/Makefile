@@ -4,9 +4,9 @@ CXXFLAGS ?= -std=gnu++11 -Wall -Wextra -Werror
 ROOT := ../..
 BUILD_DIR := build
 
-.PHONY: all test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline test_motor_output_latch test_feedback_policy test_telemetry_formatter clean
+.PHONY: all test_balance_controller test_lqr_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline test_motor_output_latch test_feedback_policy test_safety_cutoff test_telemetry_formatter clean
 
-all: test_balance_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline test_motor_output_latch test_feedback_policy test_telemetry_formatter
+all: test_balance_controller test_lqr_controller test_robot_state test_sensors test_auto_arm_controller test_balance_point_store test_balance_point_learner test_command_parser test_command_reader test_bluetooth_serial_port test_config test_reset_diagnostics test_runtime_stats test_balance_pipeline test_motor_output_latch test_feedback_policy test_safety_cutoff test_telemetry_formatter
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -29,8 +29,14 @@ $(BUILD_DIR)/test_balance_controller: test_balance_controller.cpp $(ROOT)/SelfBa
 test_balance_controller: $(BUILD_DIR)/test_balance_controller
 	./$(BUILD_DIR)/test_balance_controller
 
-$(BUILD_DIR)/test_balance_pipeline: test_balance_pipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.h $(ROOT)/SelfBalanceRobot/BalanceController.cpp $(ROOT)/SelfBalanceRobot/BalanceController.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(ROOT)/SelfBalanceRobot/config.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_balance_pipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.cpp $(ROOT)/SelfBalanceRobot/BalanceController.cpp -o $@
+$(BUILD_DIR)/test_lqr_controller: test_lqr_controller.cpp $(ROOT)/SelfBalanceRobot/LqrController.cpp $(ROOT)/SelfBalanceRobot/LqrController.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(ROOT)/SelfBalanceRobot test_lqr_controller.cpp $(ROOT)/SelfBalanceRobot/LqrController.cpp -o $@
+
+test_lqr_controller: $(BUILD_DIR)/test_lqr_controller
+	./$(BUILD_DIR)/test_lqr_controller
+
+$(BUILD_DIR)/test_balance_pipeline: test_balance_pipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.h $(ROOT)/SelfBalanceRobot/BalanceController.cpp $(ROOT)/SelfBalanceRobot/BalanceController.h $(ROOT)/SelfBalanceRobot/LqrController.cpp $(ROOT)/SelfBalanceRobot/LqrController.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(ROOT)/SelfBalanceRobot/config.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_balance_pipeline.cpp $(ROOT)/SelfBalanceRobot/BalancePipeline.cpp $(ROOT)/SelfBalanceRobot/BalanceController.cpp $(ROOT)/SelfBalanceRobot/LqrController.cpp -o $@
 
 test_balance_pipeline: $(BUILD_DIR)/test_balance_pipeline
 	./$(BUILD_DIR)/test_balance_pipeline
@@ -70,6 +76,12 @@ $(BUILD_DIR)/test_feedback_policy: test_feedback_policy.cpp $(ROOT)/SelfBalanceR
 
 test_feedback_policy: $(BUILD_DIR)/test_feedback_policy
 	./$(BUILD_DIR)/test_feedback_policy
+
+$(BUILD_DIR)/test_safety_cutoff: test_safety_cutoff.cpp $(ROOT)/SelfBalanceRobot/SafetyCutoff.cpp $(ROOT)/SelfBalanceRobot/SafetyCutoff.h | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(ROOT)/SelfBalanceRobot test_safety_cutoff.cpp $(ROOT)/SelfBalanceRobot/SafetyCutoff.cpp -o $@
+
+test_safety_cutoff: $(BUILD_DIR)/test_safety_cutoff
+	./$(BUILD_DIR)/test_safety_cutoff
 
 $(BUILD_DIR)/test_motor_output_latch: test_motor_output_latch.cpp $(ROOT)/SelfBalanceRobot/MotorOutputLatch.cpp $(ROOT)/SelfBalanceRobot/MotorOutputLatch.h $(ROOT)/SelfBalanceRobot/RobotTypes.h $(BUILD_DIR)/Arduino.h | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -I$(BUILD_DIR) -I$(ROOT)/SelfBalanceRobot test_motor_output_latch.cpp $(ROOT)/SelfBalanceRobot/MotorOutputLatch.cpp -o $@

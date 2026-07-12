@@ -1,0 +1,28 @@
+19:35:21.324 TX stop
+19:35:21.344 RX ok stop
+19:35:21.866 TX auto off
+19:35:21.871 RX ok auto=off
+19:35:22.391 TX learn off
+19:35:22.401 RX ok learn=off
+19:35:22.922 TX trim 0
+19:35:22.931 RX ok trim=0.00
+19:35:23.439 TX pid 28 0 0.6
+19:35:23.452 RX ok pid kp=28.00 ki=0.00 kd=0.60
+19:35:23.983 WAIT stop-cooldown
+19:35:27.200 TX status
+19:35:27.243 RX status mode=disarmed angle=1.50 upright=0.00 trim=0.00 target=0.00 bp=0.70 auto=off autoErr=0.80 gyroFresh=yes gyroRate=0.96 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=28.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=648 workUs=3000 maxWorkUs=4724 missed=0 feedbackFull=131 feedbackLight=518 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=4
+19:35:27.762 GATE angle=1,50 gyroRate=0,96 stable=1
+19:35:28.057 TX status
+19:35:28.095 RX status mode=disarmed angle=1.40 upright=0.00 trim=0.00 target=0.00 bp=0.70 auto=off autoErr=0.70 gyroFresh=yes gyroRate=-0.15 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=28.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=731 workUs=3176 maxWorkUs=32460 missed=2 feedbackFull=149 feedbackLight=584 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=8
+19:35:28.616 GATE angle=1,40 gyroRate=-0,15 stable=2
+19:35:28.911 TX status
+19:35:28.958 RX status mode=disarmed angle=1.75 upright=0.00 trim=0.00 target=0.00 bp=0.70 auto=off autoErr=1.05 gyroFresh=yes gyroRate=-0.61 rate=0.00 raw=0 balance=0 speed=0.00 pos=0.00 hold=0.00 left=0 right=0 kp=28.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=815 workUs=2992 maxWorkUs=32488 missed=4 feedbackFull=166 feedbackLight=652 motorWrites=0 motorStops=1 telemUs=4 maxTelemUs=8
+19:35:29.476 GATE angle=1,75 gyroRate=-0,61 stable=3
+19:35:29.477 TX arm
+19:35:29.486 RX ok arm
+19:35:29.993 BALANCE_WINDOW_BEGIN no status polling for 8.0s
+19:35:38.006 BALANCE_WINDOW_END sending stop
+19:35:38.006 TX stop
+19:35:38.013 RX ok stop
+19:35:38.786 TX status
+19:35:38.828 RX status mode=disarmed angle=59.49 upright=1.50 trim=0.00 target=1.50 bp=1.50 auto=off autoErr=58.79 gyroFresh=yes gyroRate=26.87 rate=0.00 raw=0 balance=0 speed=0.00 pos=-34.00 hold=0.00 left=0 right=0 kp=28.00 stored=yes stopReason=command reset=none resetRaw=0x00 ki=0.00 loopTicks=1800 workUs=3076 maxWorkUs=32824 missed=6 feedbackFull=365 feedbackLight=1440 motorWrites=522 motorStops=2 telemUs=4 maxTelemUs=12

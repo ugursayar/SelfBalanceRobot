@@ -15,6 +15,7 @@ struct TelemetrySnapshot {
   float trimDegrees = 0.0f;
   float activeBalancePointDegrees = 0.0f;
   bool storedBalancePoint = false;
+  StopReason stopReason = StopReason::None;
   uint8_t resetRaw = 0;
   bool autoArmEnabled = false;
   float autoAngleErrorDegrees = 0.0f;
@@ -63,6 +64,8 @@ public:
     printCommonControlFields(out, snapshot);
     out.print(" stored=");
     out.print(snapshot.storedBalancePoint ? "yes" : "no");
+    out.print(" stopReason=");
+    printStopReason(out, snapshot.stopReason);
     out.print(" reset=");
     printResetCause(out, snapshot.resetRaw);
     out.print(" resetRaw=0x");
@@ -143,6 +146,30 @@ public:
   }
 
 private:
+  template <typename Out>
+  static void printStopReason(Out& out, StopReason reason) {
+    switch (reason) {
+    case StopReason::None:
+      out.print("none");
+      break;
+    case StopReason::Command:
+      out.print("command");
+      break;
+    case StopReason::SafetyCutoff:
+      out.print("safety");
+      break;
+    case StopReason::FallFault:
+      out.print("fall");
+      break;
+    case StopReason::GyroFault:
+      out.print("gyro");
+      break;
+    case StopReason::CalibrationFault:
+      out.print("calibration");
+      break;
+    }
+  }
+
   template <typename Out>
   static void printResetCause(Out& out, uint8_t resetRaw) {
     const ResetDiagnostics::ResetCauseFlags flags =

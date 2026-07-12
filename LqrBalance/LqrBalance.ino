@@ -133,8 +133,12 @@ static const int16_t kMaxPwm = 255;        // motor command ceiling
 // authority.  kPowerMin = 0.45 is the small-signal scale that first balanced at
 // ~full battery; it still scales with pack voltage, so battery-voltage
 // compensation (scaling kPowerMin by Vnominal/Vmeasured) is the eventual fix.
-static const float kPowerMin = 0.30f;       // power fraction for small corrections
+static const float kPowerMin = 0.30f;       // validated calm small-angle power fraction
 static const float kPowerFullDeg = 7.0f;    // tilt error (deg) at/above which full power applies
+// Smallest non-zero drive used to overcome integer-PWM quantization and motor /
+// gearbox static friction.  Keep this conservative: too large recreates the
+// reverse-kick wobble when the correction changes sign near upright.
+static const int16_t kMinDrivePwm = 8;
 // Below this magnitude the motor is left to COAST (command 0) instead of being
 // forced up to a minimum kick.  Forcing a floor here made the command snap to
 // +/-min and flip sign as the robot settled through balance -- a reverse kick
@@ -218,13 +222,16 @@ static inline float scheduledTiltGain(float tiltErr) {
   return kK_tilt * scale;
 }
 
-// Replicates the MakeBlock Me_Megapi_encoder_direct timer setup required for
-// slot 1 / slot 2 PWM to work.
+// Use the official Makeblock motor-library PWM prescalers.  The encoder_direct
+// example uses /8 (roughly 8 kHz), but MeMegaPiDCMotor configures both motor
+// timers with /64.  The lower switching frequency previously reduced the
+// drivetrain's near-upright wobble, so keep the library behavior here while
+// still configuring the registers explicitly for slots 1 and 2.
 static void configureMegaPiEncoderPwmTimers() {
   TCCR1A = _BV(WGM10);
-  TCCR1B = _BV(CS11) | _BV(WGM12);
+  TCCR1B = _BV(CS11) | _BV(CS10) | _BV(WGM12);
   TCCR2A = _BV(WGM21) | _BV(WGM20);
-  TCCR2B = _BV(CS21);
+  TCCR2B = _BV(CS22);
 }
 
 // Interrupt-driven quadrature decode (CHANGE edges, 2x resolution).  Direction
@@ -431,7 +438,12 @@ void loop() {
 
   // ---- Output shaping: clamp -> slew-limit -> coast through tiny commands --
   u = clampF(u, static_cast<float>(kMaxPwm));
-  const int16_t target = static_cast<int16_t>(u);
+  int16_t target = static_cast<int16_t>(u);
+  if (u > 0.0f && target < kMinDrivePwm) {
+    target = kMinDrivePwm;
+  } else if (u < 0.0f && target > -kMinDrivePwm) {
+    target = static_cast<int16_t>(-kMinDrivePwm);
+  }
 
   // Slew-rate limit (magnitude-aware): small commands ramp slowly (smooth, no
   // stepping wobble); large commands (hard-push recovery) ramp fast.  The limit

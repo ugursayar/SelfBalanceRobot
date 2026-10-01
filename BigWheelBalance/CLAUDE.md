@@ -30,6 +30,11 @@ Keep the hot loop serial-free, as in `LqrBalance`. `../BigWheelBringUp` is the s
 - **IMU is read directly**: MPU6050 at 0x68, DLPF 2, ±500 °/s, ±4 g, 400 kHz.
   - `readImu()` reads high and low bytes in separate statements. The operand evaluation order of `(read() << 8) | read()` is unspecified in C++.
   - Axis and sign constants come from the bring-up stream. Defaults copy MeGyro's `angleX` (accel X, gyro Y negated).
+- **Model the H-bridge resistance.** `design_gains.py` uses the motor's 2.42 Ω plus `R_DRIVER` = 1 Ω (TB6612-class on-resistance, two switches in the path).
+  - Without it the wheel observer over-predicted speed per volt.
+  - That gave a 3–4 Hz mode, damping about 0.35 with 15% sag: the full-throttle wobble that grew with speed. The black-box log found it.
+  - With it, the damping is about 0.8 and the wobble is gone on the robot.
+  - Neither speed-only driving nor the S-curve touched it.
 - **Driver current.** The motor stall is about 5 A, and the MegaPi driver is about 1 A continuous / 2 A peak. If the robot goes limp on hard recoveries, suspect the driver before the gains.
 
 - **Bluetooth controller** (official Makeblock gamepad → Me Bluetooth module on `Serial3`, 115200).
@@ -81,6 +86,11 @@ Keep the hot loop serial-free, as in `LqrBalance`. `../BigWheelBringUp` is the s
   - Simulated: no overshoot over 0.5–2× gain and 0.03–0.2 s lag.
   - The stick moves the held heading, because the integral runs on (turnRef − rate).
   - Residual gyro-Z bias makes the held heading creep, about 0.1 °/s at most.
+- **Black box.** A `.noinit` ring buffer (480 samples × 5 int16 at 50 Hz, 9.6 s) survives the USB-open reset and is dumped at boot when the magic and running checksum check out.
+  - Freeze triggers: any button (packet bytes 1/3/5 non-zero, kept until dumped; the armed LED blinks) and disarm (a re-arm overwrites it).
+  - A triangle-only freeze never registered on the robot: the pad's labels don't match the library's PS2 names.
+  - It costs about 4.8 KB of RAM (75% used, 2 KB stack left). Shrink `kBlackBoxSamples` before adding big globals.
+  - Read it with pyserial, which resets the board; the dump comes before calibration.
 - **Debug build:** `--build-property "compiler.cpp.extra_flags=-DBWB_DEBUG"` logs at 100 Hz on USB, as integers: tilt error [c°], u [cV], rate [0.1 °/s], PWM R, PWM L. Never ship it.
   - **Every port open resets the board.** That includes pyserial with dtr/rts off; it's the CH340 auto-reset.
   - So the robot must be *held still* through both the upload reset and the capture reset, then released after the second LED-solid.

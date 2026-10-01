@@ -100,6 +100,16 @@ Drive levers:
 
 Prefer re-running `design_gains.py` with new weights or measurements over hand-editing the K row. The gains are a matched set with the observer constants.
 
+## Black-box logger (in-motion diagnostics)
+
+While armed, the firmware records the last ~9.6 s at 50 Hz: tilt error, tilt rate, command voltage, estimated speed and speed target. There is no serial output while running.
+
+1. Drive the manoeuvre you want to inspect.
+2. Right after the moment of interest, press **any controller button**. That freezes the log and keeps it until it is read; while armed, the LED blinks instead of staying solid to confirm it. A disarm (a fall or laying it down) also freezes it, but a re-arm then starts a new recording.
+3. **Keep the battery on**, plug in USB and open the port at 115200. Opening resets the board, which prints `BLACKBOX ... BLACKBOX END` and clears the log.
+
+The log lives in RAM that is not cleared at reset, so it survives the USB reset. A power-off loses it.
+
 ## Stall cutoff
 
 If the command stays at or above 11 V for 1.5 s, the motors cut out. Causes: the robot is stuck against something, or the motors are not responding (e.g. a driver module is missing; the DC terminals only work with the slot's module plugged in).

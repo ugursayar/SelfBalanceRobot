@@ -62,7 +62,12 @@ Motor constants at the output shaft come from the datasheet:
 - No load: 240 rpm at 12 V.
 - Rated point: 182 rpm, 4 kg·cm, 1.2 A.
 
-From those: Ke = 0.477 V·s/rad, Kt = 0.327 N·m/A, Rm = 2.42 Ω. The reflected rotor inertia Jr = n²·Jm ≈ 2.5e-3 kg·m² is an estimate.
+From those: Ke = 0.477 V·s/rad, Kt = 0.327 N·m/A, Rm = 2.42 Ω (motor only). The reflected rotor inertia Jr = n²·Jm ≈ 2.5e-3 kg·m² is an estimate.
+
+**Driver resistance.** The H-bridge adds about 1 Ω in series, so the design uses Rm = 3.42 Ω.
+- With the datasheet's 2.42 Ω alone, the observer expected about 40% more push per volt than the drivetrain delivers.
+- In the closed loop that left a 3–4 Hz mode, damping 0.46 at full pack and 0.24 at 25% sag, which the robot showed as a wobble at full throttle.
+- Modelling the driver resistance raises that damping to about 0.8 and removed the wobble on the robot.
 
 **Observer.** Take the θ row and set z = θ̇ + c·ψ̇, with c = E₁₂/E₁₁. That eliminates ψ̈:
 

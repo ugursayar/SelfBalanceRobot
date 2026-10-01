@@ -1,7 +1,5 @@
 # Auto-Arm Persisted Balance Point Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Add cable-free auto-arm using a persisted absolute gyro balance point, and learn updated balance points conservatively during stable tests.
 
 **Architecture:** Add three focused modules: `AutoArmController` decides when stillness near the stored angle is good enough to arm, `BalancePointStore` validates and persists an EEPROM record through a byte-storage interface, and `BalancePointLearner` decides when a stable balancing session should save a smoothed new point. `SelfBalanceRobot.ino` wires these into the existing state machine and balance loop.

@@ -1,7 +1,5 @@
 # Bluetooth Test Control Channel Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Restore Bluetooth as a cable-free test/control console using the same command parser as USB serial.
 
 **Architecture:** Add a pure `CommandParser` for newline text commands, a small `CommandReader` for per-port `Stream` buffering, and keep hardware side effects in `SelfBalanceRobot.ino`. Add explicit balance-point clear/set support in `BalancePointStore`, then wire USB `Serial` and Bluetooth `Serial1` through the shared command path.
@@ -1268,7 +1266,7 @@ Add this section after `Cable-Free Auto-Arm`:
 Run:
 
 ```powershell
-rg -n "BP SET|Bluetooth Cable-Free|TELEM|LEARN OFF" docs/bring-up.md docs/superpowers/specs/2026-05-29-bluetooth-test-control-channel-design.md
+rg -n "BP SET|Bluetooth Cable-Free|TELEM|LEARN OFF" docs/bring-up.md docs/specs/2026-05-29-bluetooth-test-control-channel-design.md
 ```
 
 Expected: output includes both the spec and bring-up guide.
@@ -1328,11 +1326,11 @@ Run:
 git status --short --branch
 ```
 
-Expected: branch is ahead of `origin/main`; only pre-existing untracked `ruvector.db` may remain.
+Expected: branch is ahead of `origin/main` with a clean working tree.
 
 - [ ] **Step 4: Request code review**
 
-Use `superpowers:requesting-code-review` before claiming the feature complete. Ask the reviewer to focus on command parser correctness, STOP priority, EEPROM clear behavior, and sketch integration risk.
+Request a code review before claiming the feature complete. Ask the reviewer to focus on command parser correctness, STOP priority, EEPROM clear behavior, and sketch integration risk.
 
 ---
 

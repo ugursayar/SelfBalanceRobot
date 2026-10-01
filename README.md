@@ -45,4 +45,4 @@ With the diagnostic profile uploaded, verify the corrected rate sign first: whil
 
 ## Design
 
-See the design spec in `docs/superpowers/specs/2026-05-16-makeblock-self-balancing-robot-design.md`.
+See the design spec in `docs/specs/2026-05-16-makeblock-self-balancing-robot-design.md`.

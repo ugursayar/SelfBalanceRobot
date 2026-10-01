@@ -1,7 +1,5 @@
 # MakeBlock Self-Balancing Robot Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Build the first cautious Arduino sketch for a MakeBlock MegaPi two-wheel self-balancing robot with Bluetooth arming/drive control and ultrasonic obstacle avoidance.
 
 **Architecture:** The project uses an Arduino sketch folder with small C++ modules. Hardware-facing code is isolated from pure control logic so balance math, drive mixing, and state transitions can be tested or inspected independently. The first build implements angle PID balancing and leaves encoder speed feedback as explicit hooks for later.
@@ -1502,7 +1500,7 @@ Read `docs/bring-up.md` before enabling the motors on the floor. Start with the 
 Run:
 
 ```powershell
-git add README.md docs/bring-up.md docs/superpowers/specs/2026-05-16-makeblock-self-balancing-robot-design.md docs/superpowers/plans/2026-05-16-makeblock-self-balancing-robot.md
+git add README.md docs/bring-up.md docs/specs/2026-05-16-makeblock-self-balancing-robot-design.md docs/plans/2026-05-16-makeblock-self-balancing-robot.md
 git commit -m "docs: add bring-up guide and implementation plan"
 ```
 

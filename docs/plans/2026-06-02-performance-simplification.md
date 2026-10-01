@@ -1,7 +1,5 @@
 # Performance Simplification Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Add measured runtime instrumentation and behavior-preserving simplifications so the robot's 100 Hz balance loop is easier to reason about and cheaper to run.
 
 **Architecture:** Keep `SelfBalanceRobot.ino` as the hardware coordinator, but move pure control-path logic, motor-output gating, feedback scheduling, and telemetry formatting into focused testable modules. Start with timing counters so each later simplification can be checked against loop work time and missed-deadline counts without changing PID math, motor signs, balance targets, or auto-arm semantics.
@@ -55,7 +53,7 @@ Do not reset or discard unrelated dirty working-tree changes. Commit only the fi
   - Builds the new native tests and adjusts the Arduino stub only where needed.
 - Modify `docs/bring-up.md`
   - Documents runtime counters, expected interpretation, and the `Serial3` Bluetooth control channel.
-- Modify `docs/superpowers/specs/2026-05-29-bluetooth-test-control-channel-design.md`
+- Modify `docs/specs/2026-05-29-bluetooth-test-control-channel-design.md`
   - Ensures the Bluetooth channel documentation matches the `Serial3` implementation.
 
 ---
@@ -1755,7 +1753,7 @@ git commit -m "refactor: centralize telemetry formatting"
 
 **Files:**
 - Modify: `docs/bring-up.md`
-- Modify: `docs/superpowers/specs/2026-05-29-bluetooth-test-control-channel-design.md`
+- Modify: `docs/specs/2026-05-29-bluetooth-test-control-channel-design.md`
 - Modify: `README.md`
 
 - [ ] **Step 1: Update bring-up diagnostics**
@@ -1777,7 +1775,7 @@ When tuning performance, collect one `STATUS` snapshot with debug telemetry off 
 
 - [ ] **Step 2: Fix Bluetooth serial documentation drift**
 
-In `docs/superpowers/specs/2026-05-29-bluetooth-test-control-channel-design.md`, ensure the architecture and plan text consistently says:
+In `docs/specs/2026-05-29-bluetooth-test-control-channel-design.md`, ensure the architecture and plan text consistently says:
 
 ```markdown
 Bluetooth test control uses MegaPi `Serial3` through `ROBOT_BLUETOOTH_SERIAL`.
@@ -1817,7 +1815,7 @@ Expected:
 Commit:
 
 ```bash
-git add docs/bring-up.md docs/superpowers/specs/2026-05-29-bluetooth-test-control-channel-design.md README.md
+git add docs/bring-up.md docs/specs/2026-05-29-bluetooth-test-control-channel-design.md README.md
 git commit -m "docs: document performance diagnostics"
 ```
 

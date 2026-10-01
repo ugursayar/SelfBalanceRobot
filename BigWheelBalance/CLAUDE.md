@@ -48,7 +48,16 @@ Keep the hot loop serial-free, as in `LqrBalance`. `../BigWheelBringUp` is the s
 - **Balance-point trim.** Integrates the position term into the setpoint, with τ = 4 s and a cap of ±6° from the arm tilt.
   - Without it, a d° arming error parks the robot about 21 cm per degree away from its start. Past about 2° the position clamp saturates and it drives away (simulated: 3° → 3 m).
   - With it, the robot returns to its arm spot.
-- **Shaping kept minimal.** Clamp, then slew limit (1.5 V/tick ≈ the proven 30 PWM), then smooth deadband compensation (default 0). No curved power, no coast band: pure LQR was the best base on the old build.
+- **Loop crossover is the near-upright quality knob.** This drivetrain has backlash and a flexible frame, so it forms small limit cycles at whatever frequency the loop crosses over.
+  - At 11 Hz (first weights) it was a 10 Hz shiver.
+  - At 5.6 Hz (current: tilt 5°, rate 150°/s) it is a slower ~2 Hz sway, which the user called calmer.
+  - Bench-measured, not guessed: debug build at 100 Hz, then FFT.
+  - Don't push the crossover back up, and keep |L| at 10 Hz below about 0.6 (the design script prints both).
+- **Shaping kept minimal.** Clamp, then slew limit (1.5 V/tick ≈ the proven 30 PWM), then smooth deadband compensation.
+  - Compensation is **0.15 V**, which halved the 2 Hz sway. 0.3 V on the 11 Hz loop made the shiver worse, because the compensation raises small-signal gain.
+  - No curved power, no coast band: pure LQR was the best base on the old build.
+- **Still-check calibration.** The boot calibration only accepts a 1 s window in which the pitch rate, yaw rate and accel tilt stay within 10 °/s and 3° peak-to-peak; otherwise it retries, toggling the LED.
+  - A reset while balancing once calibrated mid-fall: a 27 °/s false bias drove the command to the rail, and the stall cutoff caught it.
 - **Driving = moving reference, not a tilt offset.**
   - The stick ramps `gSpeedRef`, and `gTravelRef` integrates it.
   - The LQR runs on the errors (travel − ref, speed − ref) plus a back-EMF feedforward `Ke/r · v_ref`. At a steady speed the model needs that voltage and zero lean.
@@ -61,7 +70,10 @@ Keep the hot loop serial-free, as in `LqrBalance`. `../BigWheelBringUp` is the s
   - Simulated: no overshoot over 0.5–2× gain and 0.03–0.2 s lag.
   - The stick moves the held heading, because the integral runs on (turnRef − rate).
   - Residual gyro-Z bias makes the held heading creep, about 0.1 °/s at most.
-- **Debug build:** `--build-property "compiler.cpp.extra_flags=-DBWB_DEBUG"` prints the tilt error, u, diff, both PWMs, sticks and packet age at 5 Hz on USB. Never ship it.
+- **Debug build:** `--build-property "compiler.cpp.extra_flags=-DBWB_DEBUG"` logs at 100 Hz on USB, as integers: tilt error [c°], u [cV], rate [0.1 °/s], PWM R, PWM L. Never ship it.
+  - **Every port open resets the board.** That includes pyserial with dtr/rts off; it's the CH340 auto-reset.
+  - So the robot must be *held still* through both the upload reset and the capture reset, then released after the second LED-solid.
+  - A 2.5 s pause between upload and opening the port lets the first calibration finish.
 - **Gains are a matched set** with the observer constants. Regenerate them with `design_gains.py`; don't hand-mix.
 
 ## Testing

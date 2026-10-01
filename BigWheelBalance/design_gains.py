@@ -41,10 +41,15 @@ J_ROTOR = 2.5e-3  # kg m^2 rotor inertia reflected through the gearbox (n^2 Jm),
 TS = 0.005        # s   control period (200 Hz)
 
 # LQR weights, Bryson's rule: the largest excursion you will tolerate per state.
+# The first set (tilt 3 deg, rate 40 deg/s) put the loop crossover at 11 Hz;
+# on the robot that showed up as a 10 Hz shiver near upright (gearbox backlash
+# and frame flex add lag the model lacks).  These weights put the crossover at
+# ~5.6 Hz with the loop gain at 10 Hz below 0.6 -- keep it there (see the
+# "loop" line this script prints).
 MAX_TRAVEL_M = 0.5          # wheel travel from the arm point
-MAX_TILT_DEG = 3.0          # body tilt
+MAX_TILT_DEG = 5.0          # body tilt
 MAX_SPEED_MPS = 0.5         # ground speed
-MAX_TILT_RATE_DPS = 40.0    # body tilt rate
+MAX_TILT_RATE_DPS = 150.0   # body tilt rate
 MAX_VOLTS = 6.0             # control effort (half the pack leaves headroom)
 # ============================================================================
 
@@ -102,6 +107,30 @@ def observer_coeffs():
     c = E[0, 1] / E[0, 0]
     return dict(c=c, a=F[0, 0] / E[0, 0], b=H[0, 0] / E[0, 0],
                 g=(F[0, 0] * c - F[0, 1]) / E[0, 0])
+
+
+def loop_margins(K, delay_ticks=1.0):
+    """Loop gain broken at the controller output (nominal plant, delay,
+    observer).  Returns (crossover Hz, phase margin deg, |L| at 10 Hz)."""
+    A, B, _ = plant()
+    Ad, Bd = c2d(A, B)
+    o = observer_coeffs()
+    fs = np.linspace(0.2, 50.0, 2000)
+    L = []
+    for f in fs:
+        z = np.exp(1j * 2 * np.pi * f * TS)
+        P = np.linalg.solve(z * np.eye(4) - Ad, Bd).flatten() * z ** (-delay_ticks)
+        psi, psid = P[1], P[3]
+        zo = TS * (o['b'] / z + o['g'] * psid) / (z - (1 - TS * o['a']))
+        thd = zo - o['c'] * psid
+        th = TS * thd / (z - 1)
+        L.append(K[0] * th + K[1] * psi + K[2] * thd + K[3] * psid + K[4] / z)
+    L = np.array(L)
+    mag, ph = np.abs(L), np.degrees(np.angle(L))
+    cross = [(fs[i], 180.0 + ((ph[i] + 180.0) % 360.0 - 180.0))
+             for i in range(1, len(fs)) if (mag[i - 1] - 1) * (mag[i] - 1) < 0]
+    fc, pm = cross[-1] if cross else (float('nan'), float('nan'))
+    return fc, pm, mag[np.argmin(np.abs(fs - 10.0))]
 
 
 def closed_loop_rho(K, true, vb=1.0):
@@ -200,6 +229,9 @@ def main():
     print(f"static const float kDriveFeedforwardVoltsPerMps = {KE / R_WHEEL:.4f}f;  // back-EMF at speed")
     print("// ----------------------------------------------------------------------\n")
 
+    fc, pm, l10 = loop_margins(K)
+    print(f"loop: crossover {fc:.1f} Hz, phase margin {pm:.0f} deg, |L| at 10 Hz {l10:.2f}"
+          "  (keep crossover ~4-6 Hz, |L|@10Hz < 0.6)")
     nom = dict(M=M_BODY, m=M_WHEEL, L=L_COM, Jr=J_ROTOR)
     print(f"nominal closed-loop spectral radius: {closed_loop_rho(K, nom):.4f} (<1 = stable)")
     print("robustness (ok = stable) across body mass x CoM height, three motor/battery corners:")

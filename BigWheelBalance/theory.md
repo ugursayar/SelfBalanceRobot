@@ -80,15 +80,24 @@ Properties of this observer:
 
 ## 4. Design and checks (`design_gains.py`)
 
-Bryson weights: 0.5 m travel, 3° tilt, 0.5 m/s, 40°/s, 6 V effort. These give, for the estimated robot (2.0 kg body, CoM 0.14 m):
+Bryson weights: 0.5 m travel, **5° tilt**, 0.5 m/s, **150°/s**, 6 V effort. For the estimated robot (2.0 kg body, CoM 0.14 m), they give:
 
 | gain | value |
 |---|---|
-| tilt | 1.99 V/deg |
-| tilt rate | 0.206 V/(deg/s) |
-| travel | 9.5 V/m |
-| speed | 31.5 V/(m/s) |
-| previous command | −0.37 |
+| tilt | 1.47 V/deg |
+| tilt rate | 0.144 V/(deg/s) |
+| travel | 10.9 V/m |
+| speed | 29.7 V/(m/s) |
+| previous command | −0.18 |
+
+**Loop bandwidth matters more than the model suggests.**
+
+- The first weights (3° tilt, 40°/s) put the loop crossover at **11 Hz**. On the robot that sustained a 10 Hz shiver near upright.
+  - The tilt rate carried 8.9 °/s RMS at 6–15 Hz, and the command 0.94 V.
+  - Gearbox backlash and frame flex add lag at 10 Hz that the model leaves out. At small amplitudes that eats the margin.
+- The current weights put the crossover at **5.6 Hz** (75° phase margin) and cut the loop gain at 10 Hz from 1.12 to 0.55. The shiver dropped by about 70%.
+- The cost: a slower ~2 Hz backlash sway, about ±1.2°. A 0.15 V deadband compensation halved it (run C, 2026-10-02).
+- `design_gains.py` prints the crossover and |L| at 10 Hz. Keep them at about 4–6 Hz and below 0.6.
 
 **Robustness.** The closed loop includes the true plant, the delay and the nominal observer. It is stable across body mass from 0.6× to 1.5× of nominal and CoM height from 0.6× to 1.6× at nominal rotor inertia and battery. Two corners fail:
 

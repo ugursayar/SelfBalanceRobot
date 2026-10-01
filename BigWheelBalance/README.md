@@ -91,8 +91,8 @@ Drive levers:
 
 | Symptom | Lever |
 |---|---|
-| Small steady wobble near upright (motor sticking) | raise `kDeadbandCompVolts` from 0 in 0.3 V steps |
-| Twitchy / buzzy, fast shake | lower `kMaxVoltStepPerTick`, or re-run the design with larger `MAX_VOLTS`/smaller tilt weight |
+| Slow ~2 Hz sway near upright (gearbox play / sticking) | raise `kDeadbandCompVolts` (now 0.15 V) in small steps — too much brings the 10 Hz shiver back (0.3 V did) |
+| Fast ~10 Hz shiver | loop too fast for the gearbox: re-run the design with gentler weights (larger `MAX_TILT_DEG` / `MAX_TILT_RATE_DPS`) until the printed crossover is ~4–6 Hz |
 | Soft, sags or falls on pushes | raise `kMaxVoltStepPerTick`; re-run the design with smaller `MAX_TILT_DEG` |
 | Slow wandering back and forth | `kBalanceTrimTauSec` larger (slower trim) or `kWheelPosLeakPerSec` > 0 |
 | Drives off steadily | check `kBatteryVolts` and the trim is on; raise `kWheelPosClampVolts` |

@@ -96,7 +96,7 @@ Bryson weights: 0.5 m travel, **5° tilt**, 0.5 m/s, **150°/s**, 6 V effort. Fo
   - The tilt rate carried 8.9 °/s RMS at 6–15 Hz, and the command 0.94 V.
   - Gearbox backlash and frame flex add lag at 10 Hz that the model leaves out. At small amplitudes that eats the margin.
 - The current weights put the crossover at **5.6 Hz** (75° phase margin) and cut the loop gain at 10 Hz from 1.12 to 0.55. The shiver dropped by about 70%.
-- The cost: a slower ~2 Hz backlash sway, about ±1.2°. A 0.15 V deadband compensation halved it (run C, 2026-10-02).
+- The cost: a slower ~2 Hz backlash sway, about ±1.2°. A 0.15 V deadband compensation halved it in the log (run C). On the robot, though, the user preferred no compensation (run B) once driving at 0.8 m/s.
 - `design_gains.py` prints the crossover and |L| at 10 Hz. Keep them at about 4–6 Hz and below 0.6.
 
 **Robustness.** The closed loop includes the true plant, the delay and the nominal observer. It is stable across body mass from 0.6× to 1.5× of nominal and CoM height from 0.6× to 1.6× at nominal rotor inertia and battery. Two corners fail:

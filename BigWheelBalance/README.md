@@ -57,7 +57,7 @@ Same feel as `LqrBalance`:
 
 Pair the official Makeblock Bluetooth controller with the Me Bluetooth module, which is on `Serial3` at 115200. Then drive:
 
-- **Left stick up/down:** forward/back, up to `kMaxDriveSpeedMps` (0.4 m/s). The speed ramps at `kDriveAccelMps2`.
+- **Left stick up/down:** forward/back, up to `kMaxDriveSpeedMps` (0.8 m/s). The speed ramps at `kDriveAccelMps2` (0.5 m/s²). While moving it controls speed only, then holds the spot where it comes to rest.
 - **Right stick left/right:** turn left/right, up to `kMaxTurnRateDps` (90 °/s).
 
 How the controller handles it:
@@ -68,7 +68,7 @@ How the controller handles it:
 - The balance-point trim is frozen while driving.
 - Set `kEnableBluetoothDrive = false` for the balance-only build.
 
-Simulated: driving at 0.4 m/s peaks at a 3.5° lean and stops within 2 cm of where it should.
+Simulated at 0.8 m/s: 7.1 V peak, which leaves about 5 V for braking and recovery. 1.2 m/s would approach the 11 V stall cutoff.
 
 Drive levers:
 
@@ -91,7 +91,7 @@ Drive levers:
 
 | Symptom | Lever |
 |---|---|
-| Slow ~2 Hz sway near upright (gearbox play / sticking) | raise `kDeadbandCompVolts` (now 0.15 V) in small steps — too much brings the 10 Hz shiver back (0.3 V did) |
+| Slow ~2 Hz sway near upright (gearbox play / sticking) | `kDeadbandCompVolts` (now 0): 0.15 V halved it but the robot drove worse; 0.3 V brought the 10 Hz shiver back |
 | Fast ~10 Hz shiver | loop too fast for the gearbox: re-run the design with gentler weights (larger `MAX_TILT_DEG` / `MAX_TILT_RATE_DPS`) until the printed crossover is ~4–6 Hz |
 | Soft, sags or falls on pushes | raise `kMaxVoltStepPerTick`; re-run the design with smaller `MAX_TILT_DEG` |
 | Slow wandering back and forth | `kBalanceTrimTauSec` larger (slower trim) or `kWheelPosLeakPerSec` > 0 |

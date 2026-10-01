@@ -54,15 +54,26 @@ Keep the hot loop serial-free, as in `LqrBalance`. `../BigWheelBringUp` is the s
   - Bench-measured, not guessed: debug build at 100 Hz, then FFT.
   - Don't push the crossover back up, and keep |L| at 10 Hz below about 0.6 (the design script prints both).
 - **Shaping kept minimal.** Clamp, then slew limit (1.5 V/tick ≈ the proven 30 PWM), then smooth deadband compensation.
-  - Compensation is **0.15 V**, which halved the 2 Hz sway. 0.3 V on the 11 Hz loop made the shiver worse, because the compensation raises small-signal gain.
+  - Compensation is **0** (config "B").
+    - 0.15 V (config "C") halved the 2 Hz sway in the log.
+    - Once driving at 0.8 m/s, the user preferred B: it stands calmer, with a bit more lean but less movement, and it wobbles less at full throttle.
+    - 0.3 V on the 11 Hz loop made the shiver worse, because the compensation raises small-signal gain.
   - No curved power, no coast band: pure LQR was the best base on the old build.
 - **Still-check calibration.** The boot calibration only accepts a 1 s window in which the pitch rate, yaw rate and accel tilt stay within 10 °/s and 3° peak-to-peak; otherwise it retries, toggling the LED.
   - A reset while balancing once calibrated mid-fall: a 27 °/s false bias drove the command to the rail, and the stall cutoff caught it.
-- **Driving = moving reference, not a tilt offset.**
-  - The stick ramps `gSpeedRef`, and `gTravelRef` integrates it.
-  - The LQR runs on the errors (travel − ref, speed − ref) plus a back-EMF feedforward `Ke/r · v_ref`. At a steady speed the model needs that voltage and zero lean.
+- **Driving = speed reference, not a tilt offset.**
+  - The stick ramps `gSpeedRef` at 0.5 m/s², up to 0.8 m/s.
+  - The LQR runs on the speed error plus a back-EMF feedforward `Ke/r · v_ref`. At a steady speed the model needs that voltage and zero lean.
+  - **While driving, `gTravelRef` follows the robot (speed-only).** Position hold resumes where the ramp reaches zero.
+    - Integrating the reference instead made the robot catch up after lagging it, overshooting about 16% in the sim.
+    - On the robot the full-throttle wobble felt the same either way.
   - The delay-comp term uses the deviation `u_prev − ff_prev`.
   - The trim is frozen while driving.
+  - **Tried and dropped (2026-10-02): S-curve plus acceleration feedforward.** This was a jerk-limited profile (2 m/s³) with the model's lean of 8.9° per m/s² and 0.84 V per m/s² fed forward.
+    - The sim halved the corner and stop rocking.
+    - On the robot it was worse in every way. Re-flashing B restored good behaviour.
+    - Don't re-add it without bench data. The model's acceleration lean, which is dominated by the uncertain reflected rotor inertia, is the prime suspect.
+  - Full-throttle wobble remains (user: "fires more power and leans back").
   - Turning adds ±diff volts per wheel (right +, left −) from a yaw-rate loop on gyro Z. The diff is clamped to the headroom left after the balance command, so balance always wins.
 - **Stall cutoff.** If |u| ≥ 11 V for 1.5 s, the robot disarms and locks out until the tilt passes the fall angle. Real recoveries saturate for well under 0.5 s; a stuck robot or dead motors pin it.
 - **Yaw loop = rate P + heading hold.** The rate P alone (`kTurnP` 0.02 V per °/s) was too soft to feel against a hand twist, so the heading hold was added: `kHeadingP` 0.10 V/deg on the integral of the rate error, capped at ±30°.

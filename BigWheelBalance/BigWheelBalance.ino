@@ -148,7 +148,7 @@ static const float kMaxVoltStepPerTick = 1.5f;
 // the command passes through zero without a step (a hard minimum-PWM floor
 // caused reverse kicks on the old build).  Raise it if the robot holds a small
 // steady wobble near upright.
-static const float kDeadbandCompVolts = 0.15f;   // 0.3 V shivered on the 11 Hz loop; 0.15 V on the 5.6 Hz loop
+static const float kDeadbandCompVolts = 0.0f;    // B: 0 (C = 0.15 V halved the 2 Hz sway; 0.3 V on the 11 Hz loop shivered)
 static const float kDeadbandRampVolts = 0.3f;
 
 // --- Bluetooth drive -----------------------------------------------------------
@@ -164,7 +164,7 @@ static const uint8_t kStickDeadband = 10;       // counts around the 128 centre
 // travel reference integrates it, so the LQR leans into the motion and holds
 // the spot where the stick is released.  At speed the motor needs its back-EMF
 // voltage: feedforward Ke / r (design_gains.py).
-static const float kMaxDriveSpeedMps = 0.4f;
+static const float kMaxDriveSpeedMps = 0.8f;  // sim: 7.1 V peak, ~5 V braking headroom; 1.2 m/s nears the 11 V stall cutoff
 static const float kDriveAccelMps2 = 0.5f;
 static const float kDriveFeedforwardVoltsPerMps = 7.6394f;
 // Right stick X = turn rate (left = turn left).  Yaw loop on the gyro:
@@ -628,7 +628,14 @@ void loop() {
   }
   gSpeedRef = rampToward(gSpeedRef, speedTarget, kDriveAccelMps2 * dt);
   gTurnRef = rampToward(gTurnRef, turnTarget, kTurnAccelDps2 * dt);
-  gTravelRef += gSpeedRef * dt;
+  // While driving, control speed only: the travel reference follows the robot,
+  // so it never has to "catch up" to a reference it lagged during acceleration
+  // (that catch-up overshot ~16% and rocked at full throttle).  Position hold
+  // resumes at the spot where the speed ramp reaches zero.
+  const bool driving = (speedTarget != 0.0f) || (fabsFast(gSpeedRef) > 0.001f);
+  if (driving) {
+    gTravelRef = travelM;
+  }
   const float feedforward = kDriveFeedforwardVoltsPerMps * gSpeedRef;
 
   // ---- LQR state feedback (volts), about the moving drive reference ---------------
@@ -655,7 +662,6 @@ void loop() {
 
   // Slide the setpoint toward the tilt that needs no position term (takes
   // effect next tick).  Frozen while driving: acceleration is not a balance error.
-  const bool driving = (speedTarget != 0.0f) || (fabsFast(gSpeedRef) > 0.001f);
   if (kBalanceTrimTauSec > 0.0f && !driving) {
     gSetpointDeg -= dt * posTerm / (kK_tilt * kBalanceTrimTauSec);
     gSetpointDeg = gArmTiltDeg + clampF(gSetpointDeg - gArmTiltDeg, kMaxTrimDeg);

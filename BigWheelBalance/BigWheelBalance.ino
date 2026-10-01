@@ -189,20 +189,6 @@ static const float kHeadingP = 0.10f;            // V per deg of heading error
 static const float kMaxHeadingErrDeg = 30.0f;
 static const float kMaxTurnVolts = 3.0f;
 
-// --- Black-box logger ------------------------------------------------------------
-// While armed, records tilt error, tilt rate, command, estimated speed and the
-// speed reference at 50 Hz into a RAM ring buffer (the last ~9.6 s).  The
-// buffer lives in .noinit, so it survives the reset that opening USB causes;
-// at the next boot a valid (checksummed) log is printed on USB at 115200 and
-// then cleared.  Recording freezes on ANY controller button (kept until dumped;
-// the armed LED then blinks instead of staying solid) or on a disarm (a re-arm
-// starts a new recording).  "Triangle" alone did not register on the robot:
-// the Makeblock pad's labels differ from the library's PS2 names.
-static const bool kEnableBlackBox = true;
-static const uint8_t kBlackBoxDivider = 4;       // 200 Hz / 4 = 50 Hz
-static const uint16_t kBlackBoxSamples = 480;    // 9.6 s
-static const uint8_t kBlackBoxChannels = 5;
-
 // --- Arm / safety ------------------------------------------------------------
 static const float kBalancePointDeg = 0.0f;   // fallback if boot tilt is unusable
 static const float kMaxBootTiltDeg = 15.0f;   // boot tilt beyond this -> fallback
@@ -266,22 +252,6 @@ static uint32_t gLastPacketMs = 0;
 static uint8_t gPkt[8];
 static uint8_t gPktIndex = 0;
 static uint8_t gPktState = 0;               // 0 want FF, 1 want 55, 2 payload
-static bool gFreezeRequest = false;         // a controller button was pressed
-
-// Black-box state.  .noinit: not cleared at startup, so it survives a reset.
-enum : uint8_t { kBbRecording = 0, kBbFrozenDisarm = 1, kBbFrozenButton = 2 };
-static const uint32_t kBlackBoxMagic = 0xB1ACB0C5UL;
-struct BlackBoxHeader {
-  uint32_t magic;
-  uint16_t head;
-  uint16_t count;
-  uint16_t sum;   // running 16-bit sum of every stored value (validates it)
-  uint8_t state;
-};
-static BlackBoxHeader gBbHdr __attribute__((section(".noinit")));
-static int16_t gBbData[kBlackBoxSamples][kBlackBoxChannels]
-    __attribute__((section(".noinit")));
-static uint8_t gBbDiv = 0;
 
 static bool gLedOn = false;
 static uint32_t gLedToggleMs = 0;
@@ -361,9 +331,6 @@ static void pollController() {
         if (sum == gPkt[7]) {
           gStickLY = gPkt[2];
           gStickRX = gPkt[4];
-          if ((gPkt[1] | gPkt[3] | gPkt[5]) != 0) {  // any button
-            gFreezeRequest = true;
-          }
           gLastPacketMs = millis();
         }
         gPktState = 0;
@@ -511,14 +478,6 @@ static inline void resetBalanceState() {
 static void updateArmingLed(float offsetDeg, bool armed) {
   const uint32_t now = millis();
   if (armed) {
-    if (gBbHdr.magic == kBlackBoxMagic && gBbHdr.state == kBbFrozenButton) {
-      if (now - gLedToggleMs >= 250UL) {  // log frozen: blink as confirmation
-        gLedToggleMs = now;
-        gLedOn = !gLedOn;
-        digitalWrite(LED_BUILTIN, gLedOn ? HIGH : LOW);
-      }
-      return;
-    }
     if (!gLedOn) {
       gLedOn = true;
       digitalWrite(LED_BUILTIN, HIGH);
@@ -544,99 +503,6 @@ static void updateArmingLed(float offsetDeg, bool armed) {
   }
 }
 
-// ---- Black-box logger -------------------------------------------------------------
-static inline int16_t toI16(float v) {
-  return static_cast<int16_t>(clampF(v, 32767.0f));
-}
-
-static uint16_t blackBoxChecksum() {
-  uint16_t sum = 0;
-  for (uint16_t i = 0; i < kBlackBoxSamples; ++i) {
-    for (uint8_t c = 0; c < kBlackBoxChannels; ++c) {
-      sum = static_cast<uint16_t>(sum + static_cast<uint16_t>(gBbData[i][c]));
-    }
-  }
-  return sum;
-}
-
-// New recording at arm, unless a button-frozen log is still waiting.
-static void blackBoxStart() {
-  if (!kEnableBlackBox ||
-      (gBbHdr.magic == kBlackBoxMagic && gBbHdr.state == kBbFrozenButton)) {
-    return;
-  }
-  memset(gBbData, 0, sizeof(gBbData));
-  gBbHdr.head = 0;
-  gBbHdr.count = 0;
-  gBbHdr.sum = 0;
-  gBbHdr.state = kBbRecording;
-  gBbHdr.magic = kBlackBoxMagic;
-  gBbDiv = 0;
-}
-
-static inline void blackBoxFreeze(uint8_t why) {
-  if (gBbHdr.magic == kBlackBoxMagic && gBbHdr.state == kBbRecording) {
-    gBbHdr.state = why;
-  }
-}
-
-static void blackBoxRecord(float tiltErr, float rateDps, float u, float speed,
-                           float speedRef) {
-  if (!kEnableBlackBox || gBbHdr.magic != kBlackBoxMagic ||
-      gBbHdr.state != kBbRecording || ++gBbDiv < kBlackBoxDivider) {
-    return;
-  }
-  gBbDiv = 0;
-  const int16_t v[kBlackBoxChannels] = {
-      toI16(tiltErr * 100.0f), toI16(rateDps * 10.0f), toI16(u * 100.0f),
-      toI16(speed * 1000.0f), toI16(speedRef * 1000.0f)};
-  int16_t* slot = gBbData[gBbHdr.head];
-  for (uint8_t c = 0; c < kBlackBoxChannels; ++c) {
-    gBbHdr.sum = static_cast<uint16_t>(gBbHdr.sum - static_cast<uint16_t>(slot[c]) +
-                                       static_cast<uint16_t>(v[c]));
-    slot[c] = v[c];
-  }
-  gBbHdr.head = static_cast<uint16_t>((gBbHdr.head + 1) % kBlackBoxSamples);
-  if (gBbHdr.count < kBlackBoxSamples) {
-    ++gBbHdr.count;
-  }
-}
-
-// At boot: print a valid log (oldest first) on USB, then clear it.  Random RAM
-// after a power-up, or a log clobbered by the bootloader, fails the checks.
-static void blackBoxDumpIfValid() {
-  if (!kEnableBlackBox) {
-    return;
-  }
-  const bool valid = gBbHdr.magic == kBlackBoxMagic &&
-                     gBbHdr.count <= kBlackBoxSamples &&
-                     gBbHdr.head < kBlackBoxSamples &&
-                     gBbHdr.state <= kBbFrozenButton &&
-                     blackBoxChecksum() == gBbHdr.sum;
-  if (valid && gBbHdr.count > 0) {
-    Serial.begin(115200);
-    Serial.print(F("BLACKBOX "));
-    Serial.print(gBbHdr.count);
-    Serial.print(F(" samples @50Hz, frozen by "));
-    Serial.println(gBbHdr.state == kBbFrozenButton
-                       ? F("button")
-                       : (gBbHdr.state == kBbFrozenDisarm ? F("disarm") : F("reset")));
-    Serial.println(F("tiltErr[cdeg] rate[0.1dps] u[cV] speed[mm/s] speedRef[mm/s]"));
-    const uint16_t start = static_cast<uint16_t>(
-        (gBbHdr.head + kBlackBoxSamples - gBbHdr.count) % kBlackBoxSamples);
-    for (uint16_t i = 0; i < gBbHdr.count; ++i) {
-      const int16_t* s = gBbData[(start + i) % kBlackBoxSamples];
-      for (uint8_t c = 0; c < kBlackBoxChannels; ++c) {
-        Serial.print(s[c]);
-        Serial.print(c + 1 < kBlackBoxChannels ? ' ' : '\n');
-      }
-    }
-    Serial.println(F("BLACKBOX END"));
-    Serial.flush();
-  }
-  gBbHdr.magic = 0;
-}
-
 // ===========================================================================
 // Setup
 // ===========================================================================
@@ -646,16 +512,11 @@ void setup() {
   gLeft.reset(kLeftMotorPort);
   configureDcMotorPwmTimers();
   driveMotors(0);
-  blackBoxDumpIfValid();  // last run's log, if any (~1.5 s on USB)
 
   // Hold the robot still at its balance point through this (~1.2 s).
   if (kEnableBluetoothDrive) {
     Serial3.begin(kBluetoothBaud);
   }
-#ifdef BWB_DEBUG
-  Serial.begin(115200);
-  Serial.println(F("BWB_DEBUG 100Hz: tiltErr[cdeg] u[cV] rate[0.1dps] pwmR pwmL"));
-#endif
 
   gImuOk = initImu();
   if (gImuOk && fabsFast(gTiltDeg) <= kMaxBootTiltDeg) {
@@ -705,7 +566,6 @@ void loop() {
   if (!readImu(raw)) {
     if (++gImuFailTicks >= kMaxImuFailTicks) {
       gArmed = false;
-      blackBoxFreeze(kBbFrozenDisarm);
       driveMotors(0);
     }
     return;  // a single glitch keeps the previous command for one tick
@@ -729,7 +589,6 @@ void loop() {
   // ---- Arm gate: engage near the balance point while steady ------------------
   if (!gArmed) {
     driveMotors(0);
-    gFreezeRequest = false;  // the freeze button only counts while armed
     if (gSaturationLockout) {  // after a stall trip: re-arm only once handled
       if (fabsFast(gTiltDeg - gBalancePointDeg) > kFallAngleDeg) {
         gSaturationLockout = false;
@@ -741,7 +600,6 @@ void loop() {
       gArmTiltDeg = gTiltDeg;
       gSetpointDeg = gTiltDeg;
       resetBalanceState();
-      blackBoxStart();
       gArmed = true;
     }
     return;
@@ -750,13 +608,8 @@ void loop() {
   const float tiltErr = gTiltDeg - gSetpointDeg;
   if (fabsFast(tiltErr) > kFallAngleDeg) {
     gArmed = false;
-    blackBoxFreeze(kBbFrozenDisarm);
     driveMotors(0);
     return;
-  }
-  if (gFreezeRequest) {
-    gFreezeRequest = false;
-    blackBoxFreeze(kBbFrozenButton);
   }
 
   // ---- Wheel estimate (no encoders) -------------------------------------------
@@ -798,7 +651,6 @@ void loop() {
     gSaturatedSec += dt;
     if (gSaturatedSec >= kSaturationTripSec) {
       gArmed = false;
-      blackBoxFreeze(kBbFrozenDisarm);
       gSaturationLockout = true;
       driveMotors(0);
       return;
@@ -833,19 +685,4 @@ void loop() {
 
   // + diff speeds the right wheel up and the left down = turn left.
   driveWheels(voltsToPwm(u + diff), voltsToPwm(u - diff));
-  blackBoxRecord(tiltErr, rateDps, u, speedMps, gSpeedRef);
-
-#ifdef BWB_DEBUG  // diagnostics only: -DBWB_DEBUG, USB serial 115200, 100 Hz
-  // Integers keep the print cheap: tiltErr [cdeg], u [cV], rate [0.1 dps],
-  // pwmR, pwmL.
-  static uint8_t dbgDiv = 0;
-  if (++dbgDiv >= 2) {
-    dbgDiv = 0;
-    Serial.print(static_cast<int16_t>(tiltErr * 100.0f)); Serial.print(' ');
-    Serial.print(static_cast<int16_t>(u * 100.0f)); Serial.print(' ');
-    Serial.print(static_cast<int16_t>(rateDps * 10.0f)); Serial.print(' ');
-    Serial.print(gLastPwmRight); Serial.print(' ');
-    Serial.println(gLastPwmLeft);
-  }
-#endif
 }

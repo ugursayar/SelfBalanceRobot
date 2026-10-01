@@ -100,15 +100,13 @@ Drive levers:
 
 Prefer re-running `design_gains.py` with new weights or measurements over hand-editing the K row. The gains are a matched set with the observer constants.
 
-## Black-box logger (in-motion diagnostics)
+## Diagnostics
 
-While armed, the firmware records the last ~9.6 s at 50 Hz: tilt error, tilt rate, command voltage, estimated speed and speed target. There is no serial output while running.
+The release build has no logging or USB output; it is silent apart from the Bluetooth controller link.
 
-1. Drive the manoeuvre you want to inspect.
-2. Right after the moment of interest, press **any controller button**. That freezes the log and keeps it until it is read; while armed, the LED blinks instead of staying solid to confirm it. A disarm (a fall or laying it down) also freezes it, but a re-arm then starts a new recording.
-3. **Keep the battery on**, plug in USB and open the port at 115200. Opening resets the board, which prints `BLACKBOX ... BLACKBOX END` and clears the log.
-
-The log lives in RAM that is not cleared at reset, so it survives the USB reset. A power-off loses it.
+Two tools were used to tune it and can be restored from commit `1198d6f`:
+- a 100 Hz USB debug log (`-DBWB_DEBUG`);
+- a black-box logger: an in-RAM ring buffer of the last 9.6 s, frozen by any controller button and dumped on USB at the next boot.
 
 ## Stall cutoff
 

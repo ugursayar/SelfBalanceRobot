@@ -86,15 +86,10 @@ Keep the hot loop serial-free, as in `LqrBalance`. `../BigWheelBringUp` is the s
   - Simulated: no overshoot over 0.5–2× gain and 0.03–0.2 s lag.
   - The stick moves the held heading, because the integral runs on (turnRef − rate).
   - Residual gyro-Z bias makes the held heading creep, about 0.1 °/s at most.
-- **Black box.** A `.noinit` ring buffer (480 samples × 5 int16 at 50 Hz, 9.6 s) survives the USB-open reset and is dumped at boot when the magic and running checksum check out.
-  - Freeze triggers: any button (packet bytes 1/3/5 non-zero, kept until dumped; the armed LED blinks) and disarm (a re-arm overwrites it).
-  - A triangle-only freeze never registered on the robot: the pad's labels don't match the library's PS2 names.
-  - It costs about 4.8 KB of RAM (75% used, 2 KB stack left). Shrink `kBlackBoxSamples` before adding big globals.
-  - Read it with pyserial, which resets the board; the dump comes before calibration.
-- **Debug build:** `--build-property "compiler.cpp.extra_flags=-DBWB_DEBUG"` logs at 100 Hz on USB, as integers: tilt error [c°], u [cV], rate [0.1 °/s], PWM R, PWM L. Never ship it.
-  - **Every port open resets the board.** That includes pyserial with dtr/rts off; it's the CH340 auto-reset.
-  - So the robot must be *held still* through both the upload reset and the capture reset, then released after the second LED-solid.
-  - A 2.5 s pause between upload and opening the port lets the first calibration finish.
+- **Release build is diagnostics-free.** The only serial link is the Bluetooth controller on `Serial3`. The tuning tools live in commit `1198d6f`:
+  - **USB debug log** (`-DBWB_DEBUG`): 100 Hz integers on USB.
+  - **Black-box logger:** a `.noinit` ring buffer, 480 × 5 int16 at 50 Hz (9.6 s). It survives the USB-open reset, any controller button freezes it, and it dumps at boot with a magic and running-checksum check. It costs about 4.8 KB of RAM.
+  - **Every USB port open resets the board.** This is the CH340 auto-reset, and pyserial's dtr/rts off doesn't stop it. Hold the robot still through both the upload and capture resets, with a 2.5 s gap between them.
 - **Gains are a matched set** with the observer constants. Regenerate them with `design_gains.py`; don't hand-mix.
 
 ## Testing

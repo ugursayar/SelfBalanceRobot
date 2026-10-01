@@ -56,7 +56,11 @@ Keep the hot loop serial-free, as in `LqrBalance`. `../BigWheelBringUp` is the s
   - The trim is frozen while driving.
   - Turning adds ±diff volts per wheel (right +, left −) from a yaw-rate loop on gyro Z. The diff is clamped to the headroom left after the balance command, so balance always wins.
 - **Stall cutoff.** If |u| ≥ 11 V for 1.5 s, the robot disarms and locks out until the tilt passes the fall angle. Real recoveries saturate for well under 0.5 s; a stuck robot or dead motors pin it.
-- **Yaw loop is rate damping only** (`kTurnP` 0.02 V per °/s), so a hand twist barely meets resistance and the robot keeps the new heading. A heading hold would need an integral or angle term on gyro Z.
+- **Yaw loop = rate P + heading hold.** The rate P alone (`kTurnP` 0.02 V per °/s) was too soft to feel against a hand twist, so the heading hold was added: `kHeadingP` 0.10 V/deg on the integral of the rate error, capped at ±30°.
+  - Yaw plant estimate: about 68 °/s per V with about 70 ms lag.
+  - Simulated: no overshoot over 0.5–2× gain and 0.03–0.2 s lag.
+  - The stick moves the held heading, because the integral runs on (turnRef − rate).
+  - Residual gyro-Z bias makes the held heading creep, about 0.1 °/s at most.
 - **Debug build:** `--build-property "compiler.cpp.extra_flags=-DBWB_DEBUG"` prints the tilt error, u, diff, both PWMs, sticks and packet age at 5 Hz on USB. Never ship it.
 - **Gains are a matched set** with the observer constants. Regenerate them with `design_gains.py`; don't hand-mix.
 

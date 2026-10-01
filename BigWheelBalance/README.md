@@ -63,7 +63,7 @@ Pair the official Makeblock Bluetooth controller with the Me Bluetooth module, w
 How the controller handles it:
 
 - The stick sets a speed reference. The balance loop leans into it and stops on the spot where you release the stick.
-- Turning is a gyro yaw-rate loop, so the robot also resists being spun when the stick is centred.
+- Turning is a gyro yaw loop with **heading hold**. The robot drives straight, pushes back when twisted, and returns to its heading. That memory is capped at ±30°, so anything twisted beyond that is forgotten.
 - If no packet arrives for 300 ms (controller off or out of range), the sticks count as centred and the robot ramps to a stop.
 - The balance-point trim is frozen while driving.
 - Set `kEnableBluetoothDrive = false` for the balance-only build.
@@ -77,6 +77,7 @@ Drive levers:
 | faster / slower | `kMaxDriveSpeedMps` (keep ≤ 0.8: back-EMF eats balance headroom) |
 | gentler starts and stops | lower `kDriveAccelMps2` |
 | turns too slow / too fast | `kMaxTurnRateDps`; a lazy or overshooting turn → `kTurnP` |
+| twist push-back too soft / too stiff | `kHeadingP` (0.10 V/deg) |
 | keeps creeping after stop | `kDriveFeedforwardVoltsPerMps` (motor friction) |
 
 ## First-run checks (hold it, be ready to catch)

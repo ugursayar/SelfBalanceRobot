@@ -158,15 +158,23 @@ static const uint8_t kStickDeadband = 10;       // counts around the 128 centre
 static const float kMaxDriveSpeedMps = 0.4f;
 static const float kDriveAccelMps2 = 0.5f;
 static const float kDriveFeedforwardVoltsPerMps = 7.6394f;
-// Right stick X = turn rate (left = turn left).  Yaw-rate loop on the gyro:
-// differential volts = feedforward (no-load, ~0.22 m track) + P on the error.
-// It also resists being spun when the stick is centred.
+// Right stick X = turn rate (left = turn left).  Yaw loop on the gyro:
+// differential volts = feedforward (no-load, ~0.22 m track) + P on the rate
+// error + P on the heading error (the integral of the rate error), so the
+// robot holds its heading, returns after being twisted, and drives straight;
+// the stick rotates the heading it holds.
 static const float kMaxTurnRateDps = 90.0f;
 static const float kTurnAccelDps2 = 360.0f;
 static const uint8_t kGyroYawAxis = 2;
 static const float kGyroYawSign = 1.0f;  // + = turning left (CCW from above), bench-verified
 static const float kTurnFeedforwardVoltsPerDps = 0.0147f;
 static const float kTurnP = 0.02f;               // V per deg/s of yaw-rate error
+// Heading hold.  Yaw plant estimate: ~68 deg/s per V, ~70 ms lag (back-EMF
+// damping).  0.10 V/deg returns a twist ~63% in ~0.6 s with no overshoot,
+// robust to 0.5-2x turn gain and 0.03-0.2 s lag (simulated).  The heading
+// memory is capped so a long, hard twist cannot wind up a violent snap-back.
+static const float kHeadingP = 0.10f;            // V per deg of heading error
+static const float kMaxHeadingErrDeg = 30.0f;
 static const float kMaxTurnVolts = 3.0f;
 
 // --- Arm / safety ------------------------------------------------------------
@@ -225,6 +233,7 @@ static int16_t gLastPwmLeft = INT16_MIN;
 static float gSpeedRef = 0.0f;              // m/s
 static float gTravelRef = 0.0f;             // m
 static float gTurnRef = 0.0f;               // deg/s, + = left
+static float gHeadingErrDeg = 0.0f;         // integral of turnRef - yawRate
 static uint8_t gStickLY = 128;
 static uint8_t gStickRX = 128;
 static uint32_t gLastPacketMs = 0;
@@ -427,6 +436,7 @@ static inline void resetBalanceState() {
   gSpeedRef = 0.0f;
   gTravelRef = 0.0f;
   gTurnRef = 0.0f;
+  gHeadingErrDeg = 0.0f;
   gSaturatedSec = 0.0f;
 }
 
@@ -631,9 +641,10 @@ void loop() {
   // ---- Turn: yaw-rate loop -> differential volts (balance keeps priority) ---------
   float diff = 0.0f;
   if (kEnableBluetoothDrive) {
-    const float yawRateDps = yawRateRawDps(raw) - gYawBiasDps;
-    diff = (kTurnFeedforwardVoltsPerDps * gTurnRef) +
-           (kTurnP * (gTurnRef - yawRateDps));
+    const float yawRateErr = gTurnRef - (yawRateRawDps(raw) - gYawBiasDps);
+    gHeadingErrDeg = clampF(gHeadingErrDeg + yawRateErr * dt, kMaxHeadingErrDeg);
+    diff = (kTurnFeedforwardVoltsPerDps * gTurnRef) + (kTurnP * yawRateErr) +
+           (kHeadingP * gHeadingErrDeg);
     diff = clampF(clampF(diff, kMaxTurnVolts), kMaxVolts - fabsFast(u));
   }
 
